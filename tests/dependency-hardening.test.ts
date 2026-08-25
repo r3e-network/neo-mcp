@@ -1,12 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 
-// GHSA-mh99-v99m-4gvg (CVE-2026-14257): brace-expansion <= 5.0.7 expands patterns
-// without bound, so a pattern like `{a,b}` repeated enough times ends the process with
-// an uncatchable OOM. Only 5.0.8 caps expansion, and its CommonJS build is not callable,
-// which is why this repository routes every consumer through tools/brace-expansion-cjs.
-// These checks fail if that wiring is dropped or a vulnerable copy returns to the tree.
-const MINIMUM_PATCHED_VERSION = [5, 0, 8] as const;
+// GHSA-mh99-v99m-4gvg and GHSA-rgw5-rvv9-x895: brace-expansion <= 5.0.8 can
+// produce unbounded intermediate arrays, so a repeated `{a,b}` pattern can end the
+// process with an uncatchable OOM. Version 5.0.9 applies the complete cap, but its
+// CommonJS build is not callable, which is why every consumer is routed through
+// tools/brace-expansion-cjs. These checks fail if that wiring is dropped or a
+// vulnerable copy returns to the tree.
+const MINIMUM_PATCHED_VERSION = [5, 0, 9] as const;
 const WRAPPER_SPEC = 'file:./tools/brace-expansion-cjs';
 const SELF_REFERENCE_OVERRIDE = '$brace-expansion';
 

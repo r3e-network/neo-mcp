@@ -1,9 +1,9 @@
 'use strict';
 
-// brace-expansion <= 5.0.7 is vulnerable to GHSA-mh99-v99m-4gvg (CVE-2026-14257): a
-// pattern such as `{0..}` expands without bound and takes the process down with an
-// OOM that cannot be caught. The fix landed in 5.0.8, which caps expansion at
-// EXPANSION_MAX results / EXPANSION_MAX_LENGTH characters.
+// brace-expansion <= 5.0.8 is vulnerable to unbounded expansion advisories
+// GHSA-mh99-v99m-4gvg and GHSA-rgw5-rvv9-x895. A pattern such as `{0..}` can take
+// the process down with an OOM that cannot be caught. Version 5.0.9 applies the
+// complete cap at EXPANSION_MAX results / EXPANSION_MAX_LENGTH characters.
 //
 // That release cannot be dropped in through `overrides` alone. Its CommonJS build is
 // an object with `__esModule: true` and a named `expand`, but no `default` and no
