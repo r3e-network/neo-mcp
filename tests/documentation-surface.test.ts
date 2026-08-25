@@ -22,7 +22,7 @@ describe('documentation surface', () => {
     expect(websiteApiDoc).toContain('id="chains"');
     expect(websiteApiDoc).toContain('"chain": "n3"');
     expect(websiteApiDoc).toContain('build_contract_call');
-    expect(websiteApiDoc).toContain('none of the 51 default tools holds a private key');
+    expect(websiteApiDoc).toContain('none of the 56 default tools holds a private key');
     expect(websiteApiDoc).toContain('analyze_address');
     expect(websiteApiDoc).toContain('analyze_account_graph');
     expect(websiteApiDoc).toContain('analyze_consensus_health');
@@ -33,6 +33,11 @@ describe('documentation surface', () => {
     expect(websiteApiDoc).toContain('analyze_contract_upgrades');
     expect(websiteApiDoc).toContain('get_contract_source_verification');
     expect(websiteApiDoc).toContain('inspect_contract_code');
+    expect(websiteApiDoc).toContain('analyze_neox_transaction');
+    expect(websiteApiDoc).toContain('analyze_neox_block');
+    expect(websiteApiDoc).toContain('analyze_neox_address');
+    expect(websiteApiDoc).toContain('analyze_neox_contract');
+    expect(websiteApiDoc).toContain('analyze_neox_token');
 
     const toolsTableStart = websiteApiDoc.indexOf('id="tools"');
     const toolsTableEnd = websiteApiDoc.indexOf('Optional local signing tools');

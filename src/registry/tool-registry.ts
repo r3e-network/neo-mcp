@@ -925,6 +925,99 @@ const SPECS: PublicToolSpec[] = [
     },
   },
   {
+    name: 'analyze_neox_transaction',
+    description:
+      'PRIMARY Neo X transaction-intelligence tool. Aggregates the indexed transaction, '
+      + 'event logs, internal calls, token transfers, and state changes in one bounded read. '
+      + 'Report unavailable sections and pagination boundaries; indexed traces are evidence, '
+      + 'not proof of intent or identity.',
+    inputSchema: {
+      hash: z.string().describe('Neo X transaction hash (0x + 64 hex characters)'),
+      ...networkField,
+    },
+    chains: ['neox'],
+    routes: {
+      neox: {
+        internalName: 'x_analyze_transaction',
+        mapArgs: (args) => neoxNetwork(pick(args, ['hash', 'network'])),
+      },
+    },
+  },
+  {
+    name: 'analyze_neox_block',
+    description:
+      'PRIMARY Neo X block-intelligence tool. Returns indexed block facts and a bounded newest '
+      + 'page of included transactions with explicit pagination and availability boundaries. '
+      + 'Do not infer activity outside the returned page.',
+    inputSchema: {
+      blockNumberOrHash: z.union([z.string(), z.number().int().nonnegative()]).describe(
+        'Neo X block height or 0x block hash',
+      ),
+      ...networkField,
+    },
+    chains: ['neox'],
+    routes: {
+      neox: {
+        internalName: 'x_analyze_block',
+        mapArgs: (args) => neoxNetwork(pick(args, ['blockNumberOrHash', 'network'])),
+      },
+    },
+  },
+  {
+    name: 'analyze_neox_address',
+    description:
+      'PRIMARY Neo X account-intelligence tool. Aggregates the indexed account summary, counters, '
+      + 'recent transactions, token transfers, internal calls, and current token balances in one '
+      + 'bounded read. Observed activity and public tags never prove a real-world owner.',
+    inputSchema: {
+      address: z.string().describe('Neo X account or contract address (0x + 40 hex characters)'),
+      ...networkField,
+    },
+    chains: ['neox'],
+    routes: {
+      neox: {
+        internalName: 'x_analyze_address',
+        mapArgs: (args) => neoxNetwork(pick(args, ['address', 'network'])),
+      },
+    },
+  },
+  {
+    name: 'analyze_neox_contract',
+    description:
+      'PRIMARY Neo X contract-intelligence tool. Aggregates account/proxy metadata, verified '
+      + 'source and ABI when available, counters, recent transactions, token transfers, and logs. '
+      + 'Source verification is not a security audit, and missing optional evidence stays explicit.',
+    inputSchema: {
+      address: z.string().describe('Neo X contract address (0x + 40 hex characters)'),
+      ...networkField,
+    },
+    chains: ['neox'],
+    routes: {
+      neox: {
+        internalName: 'x_analyze_contract',
+        mapArgs: (args) => neoxNetwork(pick(args, ['address', 'network'])),
+      },
+    },
+  },
+  {
+    name: 'analyze_neox_token',
+    description:
+      'PRIMARY Neo X token-intelligence tool. Aggregates token metadata, counters, a bounded '
+      + 'holder sample, recent transfers, and NFT instances when available. Preserve exact raw '
+      + 'values and pagination boundaries; a holder page is not an exhaustive distribution audit.',
+    inputSchema: {
+      address: z.string().describe('Neo X ERC-20/ERC-721/ERC-1155 contract address'),
+      ...networkField,
+    },
+    chains: ['neox'],
+    routes: {
+      neox: {
+        internalName: 'x_analyze_token',
+        mapArgs: (args) => neoxNetwork(pick(args, ['address', 'network'])),
+      },
+    },
+  },
+  {
     name: 'analyze_address',
     description:
       'PRIMARY Neo N3 account-intelligence tool for address identity or relationship analysis. '

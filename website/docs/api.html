@@ -131,6 +131,11 @@
                         <tr><td>Construct</td><td><code>build_vote</code></td><td>n3</td><td>UNSIGNED native NEO vote/unvote proposal, returned only after a true simulation result.</td></tr>
                         <tr><td>Construct</td><td><code>build_nns_operation</code></td><td>n3</td><td>UNSIGNED network-correct NNS register, renew, record, delete, or transfer proposal.</td></tr>
                         <tr><td>Explorer</td><td><code>explorer_get_address</code></td><td>n3, neox</td><td>Indexed account summary: balances, type, tags, first-seen.</td></tr>
+                        <tr><td>Explorer AI</td><td><code>analyze_neox_transaction</code></td><td>neox</td><td>Bounded transaction, logs, internal calls, token transfers, and state changes with explicit availability.</td></tr>
+                        <tr><td>Explorer AI</td><td><code>analyze_neox_block</code></td><td>neox</td><td>Block facts plus a bounded page of included transactions and pagination evidence.</td></tr>
+                        <tr><td>Explorer AI</td><td><code>analyze_neox_address</code></td><td>neox</td><td>Account summary, counters, recent activity, token flows, internal calls, and balances.</td></tr>
+                        <tr><td>Explorer AI</td><td><code>analyze_neox_contract</code></td><td>neox</td><td>Proxy/account metadata, verified source and ABI, counters, recent activity, transfers, and logs.</td></tr>
+                        <tr><td>Explorer AI</td><td><code>analyze_neox_token</code></td><td>neox</td><td>Token metadata, counters, bounded holders, transfers, and NFT instances when available.</td></tr>
                         <tr><td>Explorer</td><td><code>analyze_address</code></td><td>n3</td><td>Evidence-backed identity, relationships, co-signers, contract activity, behavioral signals, and sample limits.</td></tr>
                         <tr><td>Explorer</td><td><code>analyze_address_connection</code></td><td>n3</td><td>Direct, co-signed, and shared-counterparty evidence between two addresses with explicit non-exhaustive sample limits.</td></tr>
                         <tr><td>Explorer</td><td><code>analyze_account_graph</code></td><td>n3</td><td>Offline replayable transfer graph with exact per-asset flows, curated identity metadata, and explicit materialization coverage.</td></tr>
@@ -152,7 +157,7 @@
                     </tbody>
                 </table>
             </div>
-            <div class="callout" style="margin-top: 1rem;"><strong>Non-custodial by construction:</strong> none of the 51 default tools holds a private key, signs, or broadcasts. The <code>build_*</code> tools return UNSIGNED, successfully simulated proposals that a wallet reviews and signs; key custody and broadcast stay with the user. Wallet creation and import are never exposed over MCP.</div>
+            <div class="callout" style="margin-top: 1rem;"><strong>Non-custodial by construction:</strong> none of the 56 default tools holds a private key, signs, or broadcasts. The <code>build_*</code> tools return UNSIGNED, successfully simulated proposals that a wallet reviews and signs; key custody and broadcast stay with the user. Wallet creation and import are never exposed over MCP.</div>
             <h3>Optional local signing tools</h3>
             <p>A locally launched stdio server with <code>NEO_ENABLE_WRITES=true</code> and a <code>NEO_SIGNER_WIF_FILE</code> registers four additional tools that sign with that owner-supplied key. They are annotated destructive and idempotent, require an <code>idempotencyKey</code> and an explicit <code>network</code>, and require the caller to accept the exact returned intent fingerprint. They never accept WIFs, private keys, or passwords as arguments.</p>
             <p>The remote MCP HTTP transport rejects this configuration and stays read-only regardless of the setting, so a hosted server never signs on a user's behalf.</p>

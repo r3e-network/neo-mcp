@@ -47,6 +47,7 @@ import {
   dispatchEcosystemMetaTool,
   dispatchEcosystemN3Tool,
 } from './ecosystem-tools';
+import { NEOX_ANALYSIS_TOOLS, dispatchNeoxAnalysisTool } from './neox-analysis-tools';
 
 // --- Individual Tool Handlers ---
 
@@ -914,6 +915,14 @@ export async function callTool(name: string, input: Record<string, unknown>, neo
   if (ECOSYSTEM_META_TOOLS.has(name)) {
     try {
       return await dispatchEcosystemMetaTool(name, input);
+    } catch (error) {
+      return handleError(error);
+    }
+  }
+
+  if (NEOX_ANALYSIS_TOOLS.has(name)) {
+    try {
+      return createSuccessResponse(await dispatchNeoxAnalysisTool(name, input));
     } catch (error) {
       return handleError(error);
     }

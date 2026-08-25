@@ -66,6 +66,11 @@ const EXPECTED_PUBLIC_TOOLS = [
   'build_nns_operation',
   // explorer / indexer reads
   'explorer_get_address',
+  'analyze_neox_transaction',
+  'analyze_neox_block',
+  'analyze_neox_address',
+  'analyze_neox_contract',
+  'analyze_neox_token',
   'analyze_address',
   'analyze_address_connection',
   'analyze_account_graph',
@@ -92,7 +97,7 @@ describe('public tool surface', () => {
   });
 
   it('keeps the expanded high-level surface bounded', () => {
-    expect(publicToolNames().length).toBeLessThanOrEqual(51);
+    expect(publicToolNames().length).toBeLessThanOrEqual(56);
   });
 
   it('never exposes key-custody tools', () => {
@@ -190,8 +195,18 @@ describe('chain discriminator', () => {
       expect(supportedChains(name)).toEqual(['n3']);
       expect(Object.keys(PUBLIC_TOOLS[name].inputSchema)).not.toContain('chain');
     }
-    expect(supportedChains('query_explorer_graphql')).toEqual(['neox']);
-    expect(Object.keys(PUBLIC_TOOLS.query_explorer_graphql.inputSchema)).not.toContain('chain');
+    const neoxOnly = [
+      'analyze_neox_transaction',
+      'analyze_neox_block',
+      'analyze_neox_address',
+      'analyze_neox_contract',
+      'analyze_neox_token',
+      'query_explorer_graphql',
+    ];
+    for (const name of neoxOnly) {
+      expect(supportedChains(name)).toEqual(['neox']);
+      expect(Object.keys(PUBLIC_TOOLS[name].inputSchema)).not.toContain('chain');
+    }
     for (const name of [
       'get_network_mode',
       'get_wallet',
@@ -409,6 +424,22 @@ describe('explorer routing', () => {
       .toBe('x_token_holders');
     expect(resolveRoute('explorer_list_address_assets', { address: 'N1' }).internalName)
       .toBe('n3_assets_held_by_address');
+  });
+
+  it('routes each bounded Neo X intelligence tool with an isolated network', () => {
+    const cases: Array<[string, Record<string, unknown>, string]> = [
+      ['analyze_neox_transaction', { hash: `0x${'1'.repeat(64)}` }, 'x_analyze_transaction'],
+      ['analyze_neox_block', { blockNumberOrHash: 42 }, 'x_analyze_block'],
+      ['analyze_neox_address', { address: `0x${'2'.repeat(40)}` }, 'x_analyze_address'],
+      ['analyze_neox_contract', { address: `0x${'3'.repeat(40)}` }, 'x_analyze_contract'],
+      ['analyze_neox_token', { address: `0x${'4'.repeat(40)}` }, 'x_analyze_token'],
+    ];
+    for (const [name, args, internalName] of cases) {
+      const route = resolveRoute(name, { ...args, network: 'testnet' });
+      expect(route.internalName).toBe(internalName);
+      expect(route.args.network).toBe('neox-testnet');
+      expect(route.requiresServices).toBe(false);
+    }
   });
 
   it('maps the dedicated address analysis tool to the bounded catalog endpoint', () => {
@@ -664,6 +695,11 @@ describe('route metadata', () => {
     const analytical: Array<[string, Record<string, unknown>]> = [
       ['explorer_get_address', { chain: 'n3', address: 'N1' }],
       ['explorer_get_address', { chain: 'neox', address: '0x1' }],
+      ['analyze_neox_transaction', { hash: `0x${'1'.repeat(64)}` }],
+      ['analyze_neox_block', { blockNumberOrHash: 1 }],
+      ['analyze_neox_address', { address: `0x${'1'.repeat(40)}` }],
+      ['analyze_neox_contract', { address: `0x${'1'.repeat(40)}` }],
+      ['analyze_neox_token', { address: `0x${'1'.repeat(40)}` }],
       ['analyze_address', { address: 'N1' }],
       ['analyze_contract', { contractHash: `0x${'1'.repeat(40)}` }],
       ['inspect_contract_code', { contractHash: `0x${'1'.repeat(40)}` }],

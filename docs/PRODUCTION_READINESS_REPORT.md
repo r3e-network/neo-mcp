@@ -87,7 +87,7 @@ Published GitHub releases can publish npm and Docker artifacts when repository s
 
 ## Functional Surface
 
-The server registers 51 public MCP tools spanning Neo N3 and Neo X, three fixed network resources, and one parameterized block resource. Tools that both chains implement require an explicit `chain` argument with no default. Tool registration, chain routing, and generic contract-reference handling are tested. The N3-only `analyze_consensus_health` tool exposes deterministic expected-primary attribution and returns `unknown` for incomplete or stale evidence.
+The server registers 56 public MCP tools spanning Neo N3 and Neo X, three fixed network resources, and one parameterized block resource. Tools that both chains implement require an explicit `chain` argument with no default. Tool registration, chain routing, and generic contract-reference handling are tested. The N3-only `analyze_consensus_health` tool exposes deterministic expected-primary attribution and returns `unknown` for incomplete or stale evidence. Five Neo X intelligence tools aggregate network-scoped Blockscout evidence with bounded collections, explicit optional-section availability, and no exhaustive-history claim.
 
 Local contract metadata and name resolution do not certify that a named third-party contract is deployed, current, audited, or compatible on a particular network. Verify contract status, script hash, manifest, operations, and transaction behavior on-chain before relying on any third-party integration.
 

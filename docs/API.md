@@ -9,13 +9,13 @@ Neo N3 and Neo X share one tool surface. Tools that exist on both chains take a 
 | Parameter | Values | Meaning |
 | --- | --- | --- |
 | `chain` | `n3`, `neox` | Target chain. Required on every tool both chains implement; there is no silent default. Single-chain tools accept it optionally and reject the chain they do not serve. |
-| `network` | `mainnet`, `testnet` | Node network. Explorer-backed tools are mainnet only. |
+| `network` | `mainnet`, `testnet` | Selected chain network. A tool rejects a network only when its documented upstream has no matching coverage. |
 
 The registry rewrites `network` per route, so callers never spell out chain-qualified network names such as `neox-mainnet`. Neo X explorer data comes from Blockscout, whose list endpoints are cursor-paginated, so `limit` and `skip` apply to Neo N3 explorer tools only.
 
 ## MCP Surface
 
-The default server exposes 51 non-custodial tools:
+The default server exposes 56 non-custodial tools:
 
 - Server and data utilities: `get_network_mode`, `get_wallet`, `inspect_neo_value`, `convert_neo_data`, `get_neo_service_info`
 - Chain, both chains: `get_chain_info`, `get_block_height`, `get_block`, `get_transaction`, `get_transaction_status`, `get_balance`
@@ -23,9 +23,16 @@ The default server exposes 51 non-custodial tools:
 - Construct, both chains: `build_transfer`, `build_contract_call`
 - Neo ecosystem reads: `decode_neo_script`, `query_nns`, `query_neofs`, `get_oracle_info`
 - Dedicated Neo N3 construct: `build_vote`, `build_nns_operation`
-- Explorer and intelligence: `explorer_get_address`, `analyze_address`, `analyze_account_graph`, `analyze_consensus_health`, `analyze_address_connection`, `analyze_transaction`, `investigate_transactions`, `analyze_contract`, `analyze_contract_upgrades`, `get_contract_source_verification`, `inspect_contract_code`, `explorer_list_address_transactions`, `explorer_list_address_transfers`, `explorer_list_token_holders`, `explorer_search`, `query_explorer`
+- Explorer and intelligence: `explorer_get_address`, `analyze_address`, `analyze_account_graph`, `analyze_consensus_health`, `analyze_address_connection`, `analyze_transaction`, `investigate_transactions`, `analyze_contract`, `analyze_contract_upgrades`, `get_contract_source_verification`, `inspect_contract_code`, `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `explorer_list_address_transactions`, `explorer_list_address_transfers`, `explorer_list_token_holders`, `explorer_search`, `query_explorer`
 - Neo N3 only: `get_application_log`, `wait_for_transaction`, `get_unclaimed_gas`, `get_nep17_transfers`, `get_nep11_balances`, `get_nep11_transfers`, `get_contract_status`, `list_famous_contracts`, `estimate_transfer_fees`, `estimate_invoke_fees`, `explorer_list_address_assets`, `query_explorer_find`
-- Neo X only: `query_explorer_graphql`
+- Neo X only: `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `query_explorer_graphql`
+
+The five `analyze_neox_*` tools are bounded, network-isolated Blockscout v2
+aggregates. They fetch the primary entity and its relevant logs, internal calls,
+token flows, state changes, verified contract metadata, balances, holders, or
+recent activity in parallel. Optional endpoint failures remain explicit, list
+sections report pagination/truncation boundaries, and no sampled page is presented
+as exhaustive history.
 
 `call_contract` is strictly read-only: `invokefunction` on Neo N3, `eth_call` on Neo X. Its schema has no signer, private-key, or confirmation fields.
 

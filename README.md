@@ -314,7 +314,7 @@ See [DOCKER.md](./docs/DOCKER.md) for image, volume, and helper-script details.
 
 ## MCP Tools and Resources
 
-The default MCP surface exposes 51 non-custodial tools. Every tool that both chains implement takes a required `chain` discriminator, `"n3"` or `"neox"`, with no silent default; single-chain tools reject the chain they do not serve. The `network` parameter is always `"mainnet"` or `"testnet"`; the registry rewrites it for Neo X internally, so callers never spell out a chain-qualified network name.
+The default MCP surface exposes 56 non-custodial tools. Every tool that both chains implement takes a required `chain` discriminator, `"n3"` or `"neox"`, with no silent default; single-chain tools reject the chain they do not serve. The `network` parameter is always `"mainnet"` or `"testnet"`; the registry rewrites it for Neo X internally, so callers never spell out a chain-qualified network name.
 
 - Server and data utilities: `get_network_mode`, `get_wallet`, `inspect_neo_value`, `convert_neo_data`, `get_neo_service_info`
 - Chain, both chains: `get_chain_info`, `get_block_height`, `get_block`, `get_transaction`, `get_transaction_status`, `get_balance`
@@ -322,9 +322,9 @@ The default MCP surface exposes 51 non-custodial tools. Every tool that both cha
 - Construct, both chains: `build_transfer`, `build_contract_call`
 - Neo ecosystem reads: `decode_neo_script`, `query_nns`, `query_neofs`, `get_oracle_info`
 - Dedicated Neo N3 construct: `build_vote`, `build_nns_operation`
-- Explorer and intelligence: `explorer_get_address`, `analyze_address`, `analyze_account_graph`, `analyze_consensus_health`, `analyze_address_connection`, `analyze_transaction`, `investigate_transactions`, `analyze_contract`, `analyze_contract_upgrades`, `get_contract_source_verification`, `inspect_contract_code`, `explorer_list_address_transactions`, `explorer_list_address_transfers`, `explorer_list_token_holders`, `explorer_search`, `query_explorer`
+- Explorer and intelligence: `explorer_get_address`, `analyze_address`, `analyze_account_graph`, `analyze_consensus_health`, `analyze_address_connection`, `analyze_transaction`, `investigate_transactions`, `analyze_contract`, `analyze_contract_upgrades`, `get_contract_source_verification`, `inspect_contract_code`, `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `explorer_list_address_transactions`, `explorer_list_address_transfers`, `explorer_list_token_holders`, `explorer_search`, `query_explorer`
 - Neo N3 only: `get_application_log`, `wait_for_transaction`, `get_unclaimed_gas`, `get_nep17_transfers`, `get_nep11_balances`, `get_nep11_transfers`, `get_contract_status`, `list_famous_contracts`, `estimate_transfer_fees`, `estimate_invoke_fees`, `explorer_list_address_assets`, `query_explorer_find`
-- Neo X only: `query_explorer_graphql`
+- Neo X only: `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `query_explorer_graphql`
 
 `call_contract` is strictly read-only: `invokefunction` on Neo N3, `eth_call` on Neo X. The `build_*` tools run the exact read-only simulation and return UNSIGNED transaction proposals for a wallet to review and sign; no default-surface tool holds a key, signs, or broadcasts. `build_vote` pins the native NEO contract, while `build_nns_operation` pins the network-correct NameService contract and operation arguments.
 
@@ -337,7 +337,7 @@ simulated before the Explorer exposes them to a wallet.
 ### Explorer AI roadmap
 
 The canonical cross-repository plan is maintained in the
-[neo3fura AI Plan and Roadmap](https://github.com/r3e-network/neo3fura#neo-explorer-ai-plan-and-roadmap).
+[Neo OS Fura AI Plan and Roadmap](https://github.com/r3e-network/neo-os-fura#neo-explorer-ai-plan-and-roadmap).
 Neo MCP is the typed orchestration boundary: it exposes deterministic Explorer
 evidence and unsigned, simulated proposals to the assistant while keeping
 wallet review, signing, and broadcasting outside the hosted MCP service.
