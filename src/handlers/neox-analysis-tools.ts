@@ -1,6 +1,7 @@
 import { fetchBlockscout, NeoxNetwork, resolveNeoxNetwork } from '../contracts/blockscout-client';
 import { validateEvmAddress, validateEvmBlockRef, validateEvmHash } from '../utils/validation';
 import { ValidationError } from '../utils/errors';
+import { resolveKnownNeoxIdentity } from '../metadata/known-neox-addresses';
 
 const COLLECTION_ITEM_LIMIT = 25;
 const NESTED_ARRAY_LIMIT = 50;
@@ -183,15 +184,25 @@ async function analyzeEntity(
   }
 
   const primary = sections[specs[requiredIndex].name];
+  const addressLike = /^(?:0x)?[0-9a-f]{40}$/i.test(identifier);
+  const curatedIdentity = addressLike
+    ? resolveKnownNeoxIdentity(identifier, network)
+    : null;
+  const entity: Record<string, unknown> = {
+    kind,
+    identifier,
+    found: primary.status === 'available',
+  };
+  if (addressLike) {
+    entity.identity = curatedIdentity
+      ? { status: 'curated', ...curatedIdentity }
+      : { status: 'unlabeled' };
+  }
   return {
     engine_version: `neox-${kind}-intelligence/v1`,
     chain: 'neox',
     network,
-    entity: {
-      kind,
-      identifier,
-      found: primary.status === 'available',
-    },
+    entity,
     sections,
     evidence,
     boundary: {

@@ -1009,7 +1009,8 @@ const SPECS: PublicToolSpec[] = [
     description:
       'PRIMARY Neo X contract-intelligence tool. Aggregates account/proxy metadata, verified '
       + 'source and ABI when available, counters, recent transactions, token transfers, and logs. '
-      + 'Source verification is not a security audit, and missing optional evidence stays explicit.',
+      + 'Known official Neo X system addresses include curated identity evidence. Source verification '
+      + 'is not a security audit, and missing optional evidence stays explicit.',
     inputSchema: {
       address: z.string().describe('Neo X contract address (0x + 40 hex characters)'),
       ...networkField,

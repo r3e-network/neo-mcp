@@ -92,7 +92,7 @@ describe('bounded Neo X intelligence tools', () => {
     expect(response.result).toEqual(expect.objectContaining({
       engine_version: 'neox-address-intelligence/v1',
       network: 'neox-testnet',
-      entity: { kind: 'address', identifier: ADDRESS, found: true },
+      entity: expect.objectContaining({ kind: 'address', identifier: ADDRESS, found: true }),
     }));
   });
 
@@ -107,7 +107,7 @@ describe('bounded Neo X intelligence tools', () => {
     );
 
     expect(response.result).toEqual(expect.objectContaining({
-      entity: { kind: 'token', identifier: ADDRESS, found: false },
+      entity: expect.objectContaining({ kind: 'token', identifier: ADDRESS, found: false }),
       sections: expect.objectContaining({
         token: expect.objectContaining({ status: 'not_found', data: null }),
       }),
@@ -146,5 +146,47 @@ describe('bounded Neo X intelligence tools', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(response.error).toBeDefined();
+  });
+
+  test('attaches network-scoped curated identity to official Neo X contracts', async () => {
+    const bridge = '0x1212000000000000000000000000000000000004';
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({ hash: bridge, is_contract: true })) as any;
+
+    const response = await callTool(
+      'x_analyze_contract',
+      { address: bridge, network: 'neox-mainnet' },
+      emptyNeoServices,
+      emptyContractServices,
+    );
+
+    expect(response.result).toEqual(expect.objectContaining({
+      entity: expect.objectContaining({
+        kind: 'contract',
+        identifier: bridge,
+        identity: expect.objectContaining({
+          status: 'curated',
+          label: 'Neo X Bridge (Token Bridge)',
+          role: 'bridge',
+          evidence: expect.objectContaining({ kind: 'curated_official_registry' }),
+        }),
+      }),
+    }));
+  });
+
+  test('does not leak a mainnet-only token identity into Neo X testnet', async () => {
+    const mainnetWgas = '0xde41591ed1f8ed1484ac2cd8ca0876428de60eff';
+    global.fetch = jest.fn().mockResolvedValue(jsonResponse({ hash: mainnetWgas })) as any;
+
+    const response = await callTool(
+      'x_analyze_token',
+      { address: mainnetWgas, network: 'neox-testnet' },
+      emptyNeoServices,
+      emptyContractServices,
+    );
+
+    expect(response.result).toEqual(expect.objectContaining({
+      network: 'neox-testnet',
+      entity: expect.objectContaining({ identity: { status: 'unlabeled' } }),
+    }));
   });
 });
