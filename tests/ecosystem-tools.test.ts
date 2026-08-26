@@ -36,6 +36,8 @@ describe('Neo ecosystem tools', () => {
     }));
     expect(result.officialUrl).toBe('https://testnet.bridge.banelabs.org/');
     expect(result.writeBoundary).toMatch(/multi-stage/i);
+    expect(result.neoXMessageBridge).toBe('0x1212000000000000000000000000000000000009');
+    expect(result.assetBoundary).toMatch(/live bridge UI/i);
   });
 
   test('generates canonical NeoFS object links without external I/O', async () => {

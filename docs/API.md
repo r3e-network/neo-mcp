@@ -15,9 +15,9 @@ The registry rewrites `network` per route, so callers never spell out chain-qual
 
 ## MCP Surface
 
-The default server exposes 56 non-custodial tools:
+The default server exposes 57 non-custodial tools:
 
-- Server and data utilities: `get_network_mode`, `get_wallet`, `inspect_neo_value`, `convert_neo_data`, `get_neo_service_info`
+- Server and data utilities: `get_network_mode`, `get_wallet`, `inspect_neo_value`, `convert_neo_data`, `get_neo_service_info`, `analyze_stablecoins`
 - Chain, both chains: `get_chain_info`, `get_block_height`, `get_block`, `get_transaction`, `get_transaction_status`, `get_balance`
 - Contracts, both chains: `call_contract`, `get_contract_info`, `simulate_call`
 - Construct, both chains: `build_transfer`, `build_contract_call`
@@ -33,6 +33,12 @@ token flows, state changes, verified contract metadata, balances, holders, or
 recent activity in parallel. Optional endpoint failures remain explicit, list
 sections report pagination/truncation boundaries, and no sampled page is presented
 as exhaustive history.
+
+`analyze_stablecoins` performs one bounded, network-pinned USD name/symbol
+discovery across Neo N3 or Neo X and resolves candidate token metadata. It
+explicitly does not establish issuer identity, bridge provenance, fiat reserves,
+redemption rights, market price, or peg safety; same-symbol contracts remain
+untrusted candidates until those claims are verified independently.
 
 `call_contract` is strictly read-only: `invokefunction` on Neo N3, `eth_call` on Neo X. Its schema has no signer, private-key, or confirmation fields.
 

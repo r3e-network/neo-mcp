@@ -140,12 +140,13 @@ describe('MCP 2026-07-28 stateless HTTP transport', () => {
       expect(transport.sessionId).toBeUndefined();
 
       const listed = await client.listTools();
-      expect(listed.tools).toHaveLength(56);
+      expect(listed.tools).toHaveLength(57);
       expect(listed.tools.map((tool) => tool.name)).toContain('analyze_address');
       expect(listed.tools.map((tool) => tool.name)).toContain('analyze_account_graph');
       expect(listed.tools.map((tool) => tool.name)).toContain('analyze_transaction');
       expect(listed.tools.map((tool) => tool.name)).toContain('investigate_transactions');
       expect(listed.tools.map((tool) => tool.name)).toContain('analyze_contract');
+      expect(listed.tools.map((tool) => tool.name)).toContain('analyze_stablecoins');
       expect(listed.tools.map((tool) => tool.name)).toContain('analyze_contract_upgrades');
       expect(listed.tools.map((tool) => tool.name)).toContain('get_contract_source_verification');
       expect(listed.tools.map((tool) => tool.name)).toContain('inspect_contract_code');

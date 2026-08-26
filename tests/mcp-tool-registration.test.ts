@@ -25,6 +25,7 @@ const READ_ONLY_TOOL_NAMES = [
   'analyze_neox_contract',
   'analyze_neox_token',
   'analyze_neox_transaction',
+  'analyze_stablecoins',
   'analyze_transaction',
   'build_contract_call',
   'build_nns_operation',
@@ -78,6 +79,7 @@ const READ_ONLY_TOOL_NAMES = [
  * to one chain, so the enum values are pinned here too.
  */
 const CHAIN_SELECTING_TOOL_NAMES = [
+  'analyze_stablecoins',
   'build_contract_call',
   'build_transfer',
   'call_contract',

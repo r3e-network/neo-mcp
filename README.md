@@ -314,9 +314,9 @@ See [DOCKER.md](./docs/DOCKER.md) for image, volume, and helper-script details.
 
 ## MCP Tools and Resources
 
-The default MCP surface exposes 56 non-custodial tools. Every tool that both chains implement takes a required `chain` discriminator, `"n3"` or `"neox"`, with no silent default; single-chain tools reject the chain they do not serve. The `network` parameter is always `"mainnet"` or `"testnet"`; the registry rewrites it for Neo X internally, so callers never spell out a chain-qualified network name.
+The default MCP surface exposes 57 non-custodial tools. Every tool that both chains implement takes a required `chain` discriminator, `"n3"` or `"neox"`, with no silent default; single-chain tools reject the chain they do not serve. The `network` parameter is always `"mainnet"` or `"testnet"`; the registry rewrites it for Neo X internally, so callers never spell out a chain-qualified network name.
 
-- Server and data utilities: `get_network_mode`, `get_wallet`, `inspect_neo_value`, `convert_neo_data`, `get_neo_service_info`
+- Server and data utilities: `get_network_mode`, `get_wallet`, `inspect_neo_value`, `convert_neo_data`, `get_neo_service_info`, `analyze_stablecoins`
 - Chain, both chains: `get_chain_info`, `get_block_height`, `get_block`, `get_transaction`, `get_transaction_status`, `get_balance`
 - Contracts, both chains: `call_contract`, `get_contract_info`, `simulate_call`
 - Construct, both chains: `build_transfer`, `build_contract_call`

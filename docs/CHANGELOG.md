@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added `analyze_stablecoins`, a bounded Neo N3 and Neo X candidate discovery
+  tool with network pinning and explicit issuer, reserve, redemption, bridge,
+  and peg-evidence boundaries.
 - Added bounded Neo X transaction, block, address, contract, and token intelligence
   tools that aggregate Blockscout evidence in parallel for mainnet and testnet.
 - Added deterministic Neo value inspection, encoding conversion, and NeoVM
@@ -18,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   simulation and Boolean-success enforcement.
 - Added deterministic transaction analysis with exact fee arithmetic,
   decimals-aware transfer amounts, signers, VM outcome, and contract events.
-- Expanded the default non-custodial public surface to 56 tools.
+- Expanded the default non-custodial public surface to 57 tools.
 
 ## [4.0.2] - 2026-07-30
 

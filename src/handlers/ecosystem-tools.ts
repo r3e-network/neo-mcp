@@ -406,7 +406,16 @@ function getServiceInfo(input: Record<string, unknown>): Record<string, unknown>
         ? 'https://xbridge.neo.org/'
         : 'https://testnet.bridge.banelabs.org/',
       neoXTokenBridge: '0x1212000000000000000000000000000000000004',
-      capabilities: ['Neo N3 to Neo X deposit', 'Neo X to Neo N3 withdrawal'],
+      neoXMessageBridge: '0x1212000000000000000000000000000000000009',
+      documentationUrl: 'https://xdocs.ngd.network/bridge/general',
+      messageBridgeDocumentationUrl: 'https://xdocs.ngd.network/bridge/messaging-bridge',
+      capabilities: [
+        'Neo N3 to Neo X token deposit',
+        'Neo X to Neo N3 token withdrawal',
+        'Neo N3 and Neo X arbitrary message relay',
+      ],
+      assetBoundary:
+        'The live bridge UI is authoritative for currently enabled assets, quotas, fees, and pause state. Never infer support from a same-symbol token contract.',
       writeBoundary:
         'Bridge transfers are multi-stage operations involving bridge contracts, relayers, proofs, and both wallet networks. Use the official bridge UI instead of synthesizing a one-step transaction.',
     });

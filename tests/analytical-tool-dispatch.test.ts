@@ -648,6 +648,55 @@ describe('callTool analytical dispatch', () => {
     expect(fetchMock.mock.calls[0][0]).toBe(`${N3_MAINNET}/search?q=flamingo`);
   });
 
+  test('aggregates N3 stablecoin candidates in one bounded, evidence-labeled call', async () => {
+    const stablecoinHash = '0x68b938cc42b6a2d54fb9040f5facf4290ebb8c5f';
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        data: {
+          hits: [{
+            type: 'token',
+            title: 'USDT',
+            subtitle: 'USDT · NEP-17',
+            hash: stablecoinHash,
+          }],
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        data: {
+          contract_hash: stablecoinHash,
+          symbol: 'USDT',
+          decimals: 6,
+          decimals_known: true,
+          total_supply_raw: '4177713119789',
+          total_supply_known: true,
+        },
+      }));
+    global.fetch = fetchMock as any;
+
+    const response = await callTool(
+      'n3_analyze_stablecoins',
+      { network: 'mainnet' },
+      emptyNeoServices,
+      emptyContractServices,
+    );
+
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      `${N3_MAINNET}/search?q=USD`,
+      `${N3_MAINNET}/tokens/${stablecoinHash}`,
+    ]);
+    expect(response.result).toMatchObject({
+      version: 'neo-stablecoin-candidates/v1',
+      chain: 'n3',
+      network: 'mainnet',
+      candidates: [{
+        contractHash: stablecoinHash,
+        classification: 'usd_name_or_symbol_candidate',
+        pegAndReserveStatus: 'not_verified_by_explorer_evidence',
+      }],
+      coverage: { exhaustive: false },
+    });
+  });
+
   test('returns a validation error (no fetch) for an invalid N3 address', async () => {
     const fetchMock = jest.fn();
     global.fetch = fetchMock as any;
@@ -681,6 +730,45 @@ describe('callTool analytical dispatch', () => {
       `https://xexplorer.neo.org/api/v2/addresses/${VALID_EVM_ADDRESS}`,
     );
     expect(response.result).toEqual({ hash: VALID_EVM_ADDRESS });
+  });
+
+  test('keeps same-symbol Neo X stablecoins as candidates rather than verified issuers', async () => {
+    const token = '0x242D405a58F2358eC2810De195b31FbD0508bb18';
+    const fetchMock = jest.fn()
+      .mockResolvedValueOnce(jsonResponse({
+        items: [{
+          type: 'token',
+          name: 'Bridged USDT',
+          symbol: 'USDT',
+          address_hash: token,
+        }],
+      }))
+      .mockResolvedValueOnce(jsonResponse({
+        address: token.toLowerCase(),
+        name: 'Bridged USDT',
+        symbol: 'USDT',
+        decimals: '6',
+      }));
+    global.fetch = fetchMock as any;
+
+    const response = await callTool(
+      'x_analyze_stablecoins',
+      { network: 'neox-mainnet' },
+      emptyNeoServices,
+      emptyContractServices,
+    );
+
+    expect(response.result).toMatchObject({
+      version: 'neo-stablecoin-candidates/v1',
+      chain: 'neox',
+      network: 'neox-mainnet',
+      candidates: [{
+        address: token.toLowerCase(),
+        classification: 'usd_name_or_symbol_candidate',
+        pegAndReserveStatus: 'not_verified_by_explorer_evidence',
+      }],
+      coverage: { exhaustive: false },
+    });
   });
 
   test('returns a validation error (no fetch) for an invalid EVM address', async () => {

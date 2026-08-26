@@ -238,6 +238,29 @@ const SPECS: PublicToolSpec[] = [
       },
     },
   },
+  {
+    name: 'analyze_stablecoins',
+    description:
+      'PRIMARY stablecoin-discovery tool for Neo N3 or Neo X. Returns network-pinned token '
+      + 'candidates whose indexed name or symbol matches USD, with bounded contract/token '
+      + 'metadata and explicit verification boundaries. A name match, verified source, or '
+      + 'on-chain supply does not prove fiat backing, redemption, issuer identity, or peg safety.',
+    inputSchema: {
+      ...chainField(CHAINS),
+      ...networkField,
+    },
+    chains: CHAINS,
+    routes: {
+      n3: {
+        internalName: 'n3_analyze_stablecoins',
+        mapArgs: (args) => n3Args(pick(args, ['network'])),
+      },
+      neox: {
+        internalName: 'x_analyze_stablecoins',
+        mapArgs: (args) => neoxNetwork(pick(args, ['network'])),
+      },
+    },
+  },
 
   // ---------- node reads (multi-chain) ----------
   {

@@ -610,6 +610,85 @@ async function handleN3ListAssets(input: Record<string, unknown>): Promise<unkno
   return dispatchN3RestEndpoint(input, 'list_tokens', { limit: input.limit, offset: input.skip });
 }
 
+function recordOf(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function stringField(record: Record<string, unknown>, field: string): string {
+  return typeof record[field] === 'string' ? String(record[field]).trim() : '';
+}
+
+function isUsdCandidate(record: Record<string, unknown>): boolean {
+  const value = `${stringField(record, 'name')} ${stringField(record, 'title')} ${stringField(record, 'symbol')} ${stringField(record, 'display_name')}`;
+  return /usd/i.test(value);
+}
+
+async function handleN3AnalyzeStablecoins(input: Record<string, unknown>): Promise<unknown> {
+  try {
+    const network = resolveIndexerNetwork(input);
+    let candidateRows: Record<string, unknown>[] = [];
+    let discovery: 'full_text_search' | 'bounded_token_registry_scan' = 'full_text_search';
+    let discoveryLimit = 10;
+
+    if (network === NeoNetwork.MAINNET) {
+      const search = recordOf(await fetchN3Index(network, 'search', { q: 'USD' }));
+      const data = recordOf(search?.data);
+      const hits = Array.isArray(data?.hits) ? data.hits : [];
+      candidateRows = hits
+        .map(recordOf)
+        .filter((item): item is Record<string, unknown> => Boolean(item))
+        .filter((item) => stringField(item, 'type').toLowerCase() === 'token' && isUsdCandidate(item));
+    } else {
+      discovery = 'bounded_token_registry_scan';
+      discoveryLimit = 200;
+      const response = recordOf(await fetchN3Index(network, 'tokens', { limit: discoveryLimit, offset: 0 }));
+      const rows = Array.isArray(response?.data) ? response.data : [];
+      candidateRows = rows
+        .map(recordOf)
+        .filter((item): item is Record<string, unknown> => Boolean(item))
+        .filter(isUsdCandidate);
+    }
+
+    const seen = new Set<string>();
+    const candidates = (
+      await Promise.all(candidateRows.slice(0, 12).map(async (candidate) => {
+        const hash = stringField(candidate, 'hash') || stringField(candidate, 'contract_hash');
+        if (!hash || seen.has(hash.toLowerCase())) return null;
+        const validatedHash = validateScriptHash(hash);
+        seen.add(validatedHash.toLowerCase());
+        const detail = recordOf(await fetchN3Index(network, `tokens/${validatedHash}`));
+        return {
+          contractHash: validatedHash,
+          discovery: candidate,
+          token: recordOf(detail?.data),
+          classification: 'usd_name_or_symbol_candidate',
+          pegAndReserveStatus: 'not_verified_by_explorer_evidence',
+        };
+      }))
+    ).filter((item) => item !== null);
+
+    return createSuccessResponse({
+      version: 'neo-stablecoin-candidates/v1',
+      chain: 'n3',
+      network,
+      query: 'USD',
+      candidates,
+      coverage: {
+        discovery,
+        discoveryLimit,
+        returned: candidates.length,
+        exhaustive: false,
+      },
+      evidenceBoundary:
+        'Candidates are selected only by indexed USD name/symbol text. Contract existence, supply, holder counts, or source verification do not prove issuer identity, fiat reserves, redemption, or price stability. Verify those claims with the named issuer and current market data.',
+    });
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
 // --- Neo X (Blockscout v2) read tools ---
 
 function resolveNeoxNetworkParam(input: Record<string, unknown>): NeoxNetwork {
@@ -683,6 +762,53 @@ async function handleXTokenHolders(input: Record<string, unknown>): Promise<unkn
     const token = validateEvmAddress(input.address as string);
     const result = await fetchBlockscout(network, `tokens/${token}/holders`);
     return createSuccessResponse(result);
+  } catch (error) {
+    return handleError(error);
+  }
+}
+
+async function handleXAnalyzeStablecoins(input: Record<string, unknown>): Promise<unknown> {
+  try {
+    const network = resolveNeoxNetworkParam(input);
+    const search = recordOf(await fetchBlockscout(network, 'search', { q: 'USD' }));
+    const rows = Array.isArray(search?.items) ? search.items : [];
+    const seen = new Set<string>();
+    const candidates = (
+      await Promise.all(rows
+        .map(recordOf)
+        .filter((item): item is Record<string, unknown> => Boolean(item))
+        .filter((item) => stringField(item, 'type').toLowerCase() === 'token' && isUsdCandidate(item))
+        .slice(0, 12)
+        .map(async (candidate) => {
+          const rawAddress = stringField(candidate, 'address_hash');
+          if (!rawAddress || seen.has(rawAddress.toLowerCase())) return null;
+          const address = validateEvmAddress(rawAddress);
+          seen.add(address.toLowerCase());
+          const token = recordOf(await fetchBlockscout(network, `tokens/${address}`));
+          return {
+            address,
+            discovery: candidate,
+            token,
+            classification: 'usd_name_or_symbol_candidate',
+            pegAndReserveStatus: 'not_verified_by_explorer_evidence',
+          };
+        }))
+    ).filter((item) => item !== null);
+
+    return createSuccessResponse({
+      version: 'neo-stablecoin-candidates/v1',
+      chain: 'neox',
+      network,
+      query: 'USD',
+      candidates,
+      coverage: {
+        discovery: 'blockscout_full_text_search',
+        returned: candidates.length,
+        exhaustive: false,
+      },
+      evidenceBoundary:
+        'Candidates are selected only by indexed USD name/symbol text. Same-symbol contracts may be unrelated or malicious. Contract/source verification and on-chain supply do not prove issuer identity, fiat reserves, redemption, bridge provenance, or price stability.',
+    });
   } catch (error) {
     return handleError(error);
   }
@@ -792,6 +918,7 @@ const N3_INDEXER_TOOLS = new Set([
   'n3_get_block',
   'n3_list_nep17_transfers_by_contract',
   'n3_list_assets',
+  'n3_analyze_stablecoins',
   // Phase 2 constrained-filter query (gated behind N3INDEX_FIND_ENABLED, mainnet-only).
   'query_indexer_find',
 ]);
@@ -803,6 +930,7 @@ const NEOX_TOOLS = new Set([
   'x_list_token_transfers',
   'x_token_info',
   'x_token_holders',
+  'x_analyze_stablecoins',
   'x_block',
   'x_transaction',
   // Generic catalog-driven Blockscout query (mainnet-only).
@@ -839,6 +967,8 @@ async function dispatchAnalyticalTool(name: string, input: Record<string, unknow
       return await handleN3ListNep17TransfersByContract(input) as Record<string, unknown>;
     case 'n3_list_assets':
       return await handleN3ListAssets(input) as Record<string, unknown>;
+    case 'n3_analyze_stablecoins':
+      return await handleN3AnalyzeStablecoins(input) as Record<string, unknown>;
     case 'query_indexer_find':
       return await handleQueryIndexerFind(input) as Record<string, unknown>;
     case 'x_search':
@@ -853,6 +983,8 @@ async function dispatchAnalyticalTool(name: string, input: Record<string, unknow
       return await handleXTokenInfo(input) as Record<string, unknown>;
     case 'x_token_holders':
       return await handleXTokenHolders(input) as Record<string, unknown>;
+    case 'x_analyze_stablecoins':
+      return await handleXAnalyzeStablecoins(input) as Record<string, unknown>;
     case 'x_block':
       return await handleXBlock(input) as Record<string, unknown>;
     case 'x_transaction':

@@ -34,6 +34,7 @@ const EXPECTED_PUBLIC_TOOLS = [
   'inspect_neo_value',
   'convert_neo_data',
   'get_neo_service_info',
+  'analyze_stablecoins',
   // node reads (multi-chain)
   'get_chain_info',
   'get_block_height',
@@ -97,7 +98,7 @@ describe('public tool surface', () => {
   });
 
   it('keeps the expanded high-level surface bounded', () => {
-    expect(publicToolNames().length).toBeLessThanOrEqual(56);
+    expect(publicToolNames().length).toBeLessThanOrEqual(57);
   });
 
   it('never exposes key-custody tools', () => {
