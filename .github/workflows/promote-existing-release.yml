@@ -76,12 +76,14 @@ jobs:
           fi
           {
             echo "digest=$digest"
+            echo "revision=$tag_revision"
             echo "major=$version_major"
             echo "major-minor=$version_major_minor"
           } >> "$GITHUB_OUTPUT"
       - name: Promote stable Docker aliases
         env:
           IMAGE_DIGEST: ${{ steps.release.outputs.digest }}
+          IMAGE_REVISION: ${{ steps.release.outputs.revision }}
           VERSION_MAJOR: ${{ steps.release.outputs.major }}
           VERSION_MAJOR_MINOR: ${{ steps.release.outputs.major-minor }}
         run: |
@@ -92,12 +94,20 @@ jobs:
             --tag "${IMAGE_REPOSITORY}:${VERSION_MAJOR}" \
             "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}"
           for alias in latest "$VERSION_MAJOR_MINOR" "$VERSION_MAJOR"; do
-            alias_digest="$(
-              docker buildx imagetools inspect \
-                --format '{{.Manifest.Digest}}' "${IMAGE_REPOSITORY}:${alias}"
+            alias_ref="${IMAGE_REPOSITORY}:${alias}"
+            docker pull "$alias_ref" >/dev/null
+            alias_version="$(
+              docker image inspect \
+                --format '{{ index .Config.Labels "org.opencontainers.image.version" }}' \
+                "$alias_ref"
             )"
-            if [[ "$alias_digest" != "$IMAGE_DIGEST" ]]; then
-              echo "Docker alias ${alias} does not resolve to ${IMAGE_DIGEST}." >&2
+            alias_revision="$(
+              docker image inspect \
+                --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
+                "$alias_ref"
+            )"
+            if [[ "$alias_version" != "$PACKAGE_VERSION" || "$alias_revision" != "$IMAGE_REVISION" ]]; then
+              echo "Docker alias ${alias} does not preserve the validated image provenance." >&2
               exit 1
             fi
           done
