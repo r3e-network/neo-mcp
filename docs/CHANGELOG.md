@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-08-29
+
 ### Added
 - Added `analyze_stablecoins`, a bounded Neo N3 and Neo X candidate discovery
   tool with network pinning and explicit issuer, reserve, redemption, bridge,

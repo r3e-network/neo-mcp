@@ -12,7 +12,7 @@
 
 The two HTTP servers are unrelated and configured separately. See [Remote MCP 2026 HTTP](#remote-mcp-2026-http) and [docs/remote-mcp-transport.md](./docs/remote-mcp-transport.md).
 
-Current version: `4.0.2`. Node.js `>=22` is required. Version 4 speaks only
+Current version: `4.1.0`. Node.js `>=22` is required. Version 4 speaks only
 MCP `2026-07-28`; clients using the removed initialization/session protocol are
 rejected rather than downgraded.
 
