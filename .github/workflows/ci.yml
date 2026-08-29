@@ -282,8 +282,22 @@ jobs:
 
           if [[ -n "$REMOTE_INTEGRITY" ]]; then
             if [[ "$REMOTE_INTEGRITY" != "$LOCAL_INTEGRITY" ]]; then
-              echo "Published package integrity does not match the validated artifact." >&2
-              exit 1
+              # npm may re-encode an otherwise identical package tarball. Compare
+              # the immutable package payload before treating a retry as a conflict.
+              compare_dir="$(mktemp -d)"
+              trap 'rm -rf "$compare_dir"' EXIT
+              mkdir -p "$compare_dir/local" "$compare_dir/remote" "$compare_dir/registry"
+              remote_tarball="$compare_dir/registry/$(
+                npm pack "${PACKAGE_NAME}@${PACKAGE_VERSION}" \
+                  --pack-destination "$compare_dir/registry" --silent
+              )"
+              tar -xzf "$PACKAGE_TARBALL" -C "$compare_dir/local"
+              tar -xzf "$remote_tarball" -C "$compare_dir/remote"
+              if ! diff -qr --no-dereference \
+                "$compare_dir/local/package" "$compare_dir/remote/package"; then
+                echo "Published package payload does not match the validated artifact." >&2
+                exit 1
+              fi
             fi
           else
             npm publish "$PACKAGE_TARBALL" --access public --tag "$NPM_DIST_TAG"
