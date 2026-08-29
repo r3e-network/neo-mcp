@@ -22,6 +22,7 @@ Use this checklist before deploying `@r3e/neo-mcp` in MCP stdio or HTTP mode.
 - [ ] Each configured RPC URL is reachable from the runtime environment.
 - [ ] The selected node supports every RPC plugin method required by the deployment.
 - [ ] N3Index name resolution is enabled or disabled intentionally.
+- [ ] Explorer account Watch is disabled unless this deployment intentionally sends verification email.
 
 Baseline:
 
@@ -32,6 +33,7 @@ NEO_TESTNET_RPC=https://testnet1.neo.coz.io:443
 NEO_ALLOW_INSECURE_RPC=false
 NEO_MAX_TRANSACTION_FEE_GAS=20
 N3INDEX_ENABLED=true
+EXPLORER_ACCOUNT_WATCH_ENABLED=false
 ```
 
 - [ ] Every remote RPC endpoint uses HTTPS; `NEO_ALLOW_INSECURE_RPC` remains `false` in production.
@@ -49,6 +51,7 @@ N3INDEX_ENABLED=true
 - [ ] Wildcard CORS is not expected; it is not supported.
 - [ ] `HTTP_MAX_BODY_BYTES` is appropriate for expected requests; the default is 1 MiB.
 - [ ] Rate limiting remains enabled and both thresholds are positive integers.
+- [ ] When account Watch is enabled, `EXPLORER_ACCOUNT_WATCH_API_URL` is the approved HTTPS `/api/account-watches` endpoint and `EXPLORER_ACCOUNT_WATCH_API_TOKEN` is independent from all transport/API bearers.
 - [ ] Firewall rules restrict the backend listener to the TLS terminator; direct remote plaintext HTTP is unsupported because bearer tokens and WIFs traverse requests.
 
 Baseline:

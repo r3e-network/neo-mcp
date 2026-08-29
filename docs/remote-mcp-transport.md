@@ -65,7 +65,9 @@ const height = await client.callTool({
 await client.close();
 ```
 
-Remote Explorer access is read-only. A client must not auto-approve
+Remote Explorer access has no chain-write capability. The optional
+`request_account_watch` action can only send a double-opt-in verification email
+through a fixed, authenticated Explorer endpoint. A client must not auto-approve
 `input_required` requests from an untrusted source.
 
 ## Raw Discovery Request
@@ -116,12 +118,16 @@ a session identifier.
 | `MCP_HTTP_HEADERS_TIMEOUT_MS` | `30000` | Header deadline |
 | `MCP_HTTP_REQUEST_TIMEOUT_MS` | `300000` | Whole-request deadline |
 | `MCP_HTTP_KEEP_ALIVE_MS` | `15000` | Subscription keepalive interval; `0` disables it |
+| `EXPLORER_ACCOUNT_WATCH_ENABLED` | `false` | Enable the double-opt-in account Watch request action |
+| `EXPLORER_ACCOUNT_WATCH_API_URL` | `https://www.neo3scan.com/api/account-watches` | Fixed Explorer Watch endpoint |
+| `EXPLORER_ACCOUNT_WATCH_API_TOKEN` | unset | Dedicated 32-byte-or-longer bearer required when Watch is enabled |
 
 An incoming `Origin` is rejected unless it is on the exact allowlist. Server
 clients normally omit `Origin`. The bearer is compared in constant time.
 
 The process also uses shared Neo RPC, logging, and rate-limit configuration.
 Keep `NEO_ENABLE_WRITES=false` on the public remote deployment.
+The Watch API token must differ from `MCP_HTTP_BEARER` and `HTTP_API_KEY`.
 
 ## Write Approval
 

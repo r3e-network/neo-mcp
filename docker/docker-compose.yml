@@ -113,6 +113,9 @@ services:
       - MCP_HTTP_KEEP_ALIVE_MS=${MCP_HTTP_KEEP_ALIVE_MS:-15000}
       # Pinned: a remotely reachable MCP listener must not carry a signer.
       - NEO_ENABLE_WRITES=false
+      - EXPLORER_ACCOUNT_WATCH_ENABLED=${EXPLORER_ACCOUNT_WATCH_ENABLED:-false}
+      - EXPLORER_ACCOUNT_WATCH_API_URL=${EXPLORER_ACCOUNT_WATCH_API_URL:-https://www.neo3scan.com/api/account-watches}
+      - EXPLORER_ACCOUNT_WATCH_API_TOKEN=${EXPLORER_ACCOUNT_WATCH_API_TOKEN:-}
       - WALLETS_DIR=/app/wallets
     volumes:
       # Dedicated volume: the remotely reachable service gets no view of the

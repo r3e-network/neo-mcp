@@ -48,6 +48,7 @@ import {
   dispatchEcosystemN3Tool,
 } from './ecosystem-tools';
 import { NEOX_ANALYSIS_TOOLS, dispatchNeoxAnalysisTool } from './neox-analysis-tools';
+import { ACCOUNT_WATCH_TOOLS, dispatchAccountWatchTool } from './account-watch-tools';
 
 // --- Individual Tool Handlers ---
 
@@ -1055,6 +1056,14 @@ export async function callTool(name: string, input: Record<string, unknown>, neo
   if (NEOX_ANALYSIS_TOOLS.has(name)) {
     try {
       return createSuccessResponse(await dispatchNeoxAnalysisTool(name, input));
+    } catch (error) {
+      return handleError(error);
+    }
+  }
+
+  if (ACCOUNT_WATCH_TOOLS.has(name)) {
+    try {
+      return createSuccessResponse(await dispatchAccountWatchTool(name, input));
     } catch (error) {
       return handleError(error);
     }

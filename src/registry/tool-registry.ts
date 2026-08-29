@@ -58,6 +58,8 @@ export interface PublicToolSpec {
   name: string;
   description: string;
   inputSchema: Record<string, z.ZodTypeAny>;
+  /** False only for bounded external side effects such as double-opt-in email verification. */
+  readOnly?: boolean;
   /** Chains this tool supports; empty for chain-less meta tools. */
   chains: readonly Chain[];
   routes: Partial<Record<Chain, RouteSpec>> & { meta?: RouteSpec };
@@ -1130,6 +1132,27 @@ const SPECS: PublicToolSpec[] = [
           params: pick(args, ['address', 'limit']),
           ...n3Args(pick(args, ['network'])),
         }),
+      },
+    },
+  },
+  {
+    name: 'request_account_watch',
+    description:
+      'Request a double-opt-in email verification for watching one Neo N3 account. Use only '
+      + 'after the user explicitly asks to subscribe and supplies the exact address and email. '
+      + 'This sends a verification message but does not activate the watch; activation requires '
+      + 'the recipient to confirm the link. Repeated requests are cooldown-limited and idempotent.',
+    inputSchema: {
+      address: z.string().describe('Canonical Base58 Neo N3 account address to watch'),
+      email: z.string().email().max(254).describe('Recipient email for the verification message'),
+      network: z.enum(['mainnet', 'testnet']).describe('Explicit Neo N3 network to watch'),
+    },
+    readOnly: false,
+    chains: ['n3'],
+    routes: {
+      n3: {
+        internalName: 'request_account_watch',
+        mapArgs: (args) => pick(args, ['address', 'email', 'network']),
       },
     },
   },

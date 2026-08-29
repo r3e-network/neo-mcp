@@ -85,6 +85,9 @@ console.log({ blockCount, height: Math.max(0, blockCount - 1) });
 | `NEO_ENABLE_WALLET_ADMIN` | Enable HTTP wallet create/import administration | `false` |
 | `N3INDEX_API_BASE_URL` | Remote contract name lookup base URL | `https://api.n3index.dev` |
 | `N3INDEX_ENABLED` | Enable N3Index-backed name resolution | `true` |
+| `EXPLORER_ACCOUNT_WATCH_ENABLED` | Enable the double-opt-in Explorer account Watch request tool | `false` |
+| `EXPLORER_ACCOUNT_WATCH_API_URL` | Fixed Explorer Watch API endpoint | `https://www.neo3scan.com/api/account-watches` |
+| `EXPLORER_ACCOUNT_WATCH_API_TOKEN` | Dedicated bearer for the Explorer Watch API; must differ from MCP/REST bearers | required when enabled |
 | `HTTP_HOST` | REST API listen address | `127.0.0.1` |
 | `HTTP_API_KEY` | Bearer token for REST API routes | unset |
 | `HTTP_CORS_ORIGINS` | Comma-separated exact HTTP/HTTPS origins | empty |
@@ -210,10 +213,12 @@ See [API.md](./docs/API.md) for the tool and route reference.
 
 ## Remote MCP 2026 HTTP
 
-The stateless MCP 2026-07-28 HTTP transport serves the same read-only MCP tools
-as the stdio entrypoint to remote clients. It is a separate process from the
+The stateless MCP 2026-07-28 HTTP transport serves the same non-custodial MCP
+surface as the stdio entrypoint to remote clients. It is a separate process from the
 REST API, listens on its own port, and has its own configuration and bearer
-token.
+token. The only default external side effect is `request_account_watch`, which
+is disabled unless explicitly configured and can only send a double-opt-in
+verification message; it cannot activate a subscription.
 
 ```bash
 npm ci
@@ -314,7 +319,7 @@ See [DOCKER.md](./docs/DOCKER.md) for image, volume, and helper-script details.
 
 ## MCP Tools and Resources
 
-The default MCP surface exposes 57 non-custodial tools. Every tool that both chains implement takes a required `chain` discriminator, `"n3"` or `"neox"`, with no silent default; single-chain tools reject the chain they do not serve. The `network` parameter is always `"mainnet"` or `"testnet"`; the registry rewrites it for Neo X internally, so callers never spell out a chain-qualified network name.
+The default MCP surface exposes 58 non-custodial tools. Every tool that both chains implement takes a required `chain` discriminator, `"n3"` or `"neox"`, with no silent default; single-chain tools reject the chain they do not serve. The `network` parameter is always `"mainnet"` or `"testnet"`; the registry rewrites it for Neo X internally, so callers never spell out a chain-qualified network name.
 
 - Server and data utilities: `get_network_mode`, `get_wallet`, `inspect_neo_value`, `convert_neo_data`, `get_neo_service_info`, `analyze_stablecoins`
 - Chain, both chains: `get_chain_info`, `get_block_height`, `get_block`, `get_transaction`, `get_transaction_status`, `get_balance`
@@ -323,6 +328,7 @@ The default MCP surface exposes 57 non-custodial tools. Every tool that both cha
 - Neo ecosystem reads: `decode_neo_script`, `query_nns`, `query_neofs`, `get_oracle_info`
 - Dedicated Neo N3 construct: `build_vote`, `build_nns_operation`
 - Explorer and intelligence: `explorer_get_address`, `analyze_address`, `analyze_account_graph`, `analyze_consensus_health`, `analyze_address_connection`, `analyze_transaction`, `investigate_transactions`, `analyze_contract`, `analyze_contract_upgrades`, `get_contract_source_verification`, `inspect_contract_code`, `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `explorer_list_address_transactions`, `explorer_list_address_transfers`, `explorer_list_token_holders`, `explorer_search`, `query_explorer`
+- Verified notification action: `request_account_watch` sends a cooldown-limited verification message for one explicit Neo N3 network, address, and email. It is non-destructive and idempotent; the watch remains inactive until the recipient confirms in the Explorer.
 - Neo N3 only: `get_application_log`, `wait_for_transaction`, `get_unclaimed_gas`, `get_nep17_transfers`, `get_nep11_balances`, `get_nep11_transfers`, `get_contract_status`, `list_famous_contracts`, `estimate_transfer_fees`, `estimate_invoke_fees`, `explorer_list_address_assets`, `query_explorer_find`
 - Neo X only: `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `query_explorer_graphql`
 
@@ -417,7 +423,8 @@ Resources:
 - Keep both HTTP listeners bound to loopback unless remote access is required.
 - Terminate TLS before every remote HTTP connection; a bearer token authenticates requests but does not encrypt itself in transit.
 - Use a randomly generated token of at least 32 bytes for `HTTP_API_KEY` and `MCP_HTTP_BEARER`.
-- Keep `NEO_ENABLE_WRITES=false` on any remotely reachable MCP listener; the remote transport exists to serve read-only queries.
+- Keep `NEO_ENABLE_WRITES=false` on any remotely reachable MCP listener; the remote transport must never carry a transaction signer.
+- Keep `EXPLORER_ACCOUNT_WATCH_ENABLED=false` unless the deployment intentionally supports verification email. When enabled, use a dedicated 32-byte-or-longer `EXPLORER_ACCOUNT_WATCH_API_TOKEN` that differs from every transport/API bearer.
 - Keep the signer WIF only in the owner-only `NEO_SIGNER_WIF_FILE`; never send it through MCP or HTTP.
 - Persist `WALLETS_DIR` on controlled storage with restrictive permissions.
 - State-changing MCP tools require an explicit `network`, a stable idempotency

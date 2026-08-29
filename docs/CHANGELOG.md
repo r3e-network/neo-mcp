@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.0] - 2026-08-29
+
+### Added
+- Added the opt-in `request_account_watch` MCP action for Neo N3. It validates
+  the explicit network, address, and email, calls one fixed Explorer endpoint
+  with an independent bearer, and returns a pending-confirmation boundary.
+
+### Security
+- Marked the Watch tool as non-read-only, non-destructive, and idempotent while
+  keeping all remotely reachable transaction signing disabled.
+
 ## [4.1.0] - 2026-08-29
 
 ### Added

@@ -116,6 +116,7 @@ describe('Config Validation', () => {
   it.each([
     'NEO_ALLOW_INSECURE_RPC',
     'N3INDEX_ENABLED',
+    'EXPLORER_ACCOUNT_WATCH_ENABLED',
     'LOG_CONSOLE',
     'LOG_FILE_ENABLED',
     'RATE_LIMITING_ENABLED',
@@ -125,6 +126,46 @@ describe('Config Validation', () => {
     jest.isolateModules(() => {
       const { validateConfig } = require('../src/config');
       expect(() => validateConfig()).toThrow(new RegExp(key));
+    });
+  });
+
+  it('requires an independent token when account watch requests are enabled', () => {
+    process.env.EXPLORER_ACCOUNT_WATCH_ENABLED = 'true';
+    delete process.env.EXPLORER_ACCOUNT_WATCH_API_TOKEN;
+    jest.isolateModules(() => {
+      const { validateConfig } = require('../src/config');
+      expect(() => validateConfig()).toThrow(/EXPLORER_ACCOUNT_WATCH_API_TOKEN/);
+    });
+  });
+
+  it('accepts a dedicated account watch integration token and fixed endpoint path', () => {
+    process.env.EXPLORER_ACCOUNT_WATCH_ENABLED = 'true';
+    process.env.EXPLORER_ACCOUNT_WATCH_API_TOKEN =
+      'account-watch-integration-token-at-least-32-bytes';
+    process.env.EXPLORER_ACCOUNT_WATCH_API_URL =
+      'https://www.neo3scan.com/api/account-watches';
+    jest.isolateModules(() => {
+      const { validateConfig } = require('../src/config');
+      expect(() => validateConfig()).not.toThrow();
+    });
+  });
+
+  it('rejects account watch endpoints that could redirect the service token', () => {
+    process.env.EXPLORER_ACCOUNT_WATCH_API_URL =
+      'https://www.neo3scan.com/api/account-watches?redirect=https://attacker.example';
+    jest.isolateModules(() => {
+      const { validateConfig } = require('../src/config');
+      expect(() => validateConfig()).toThrow(/EXPLORER_ACCOUNT_WATCH_API_URL/);
+    });
+  });
+
+  it('rejects reuse of the MCP transport bearer for account watch authorization', () => {
+    const shared = 'shared-mcp-and-watch-token-at-least-32-bytes';
+    process.env.MCP_HTTP_BEARER = shared;
+    process.env.EXPLORER_ACCOUNT_WATCH_API_TOKEN = shared;
+    jest.isolateModules(() => {
+      const { validateConfig } = require('../src/config');
+      expect(() => validateConfig()).toThrow(/must differ/i);
     });
   });
 

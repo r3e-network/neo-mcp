@@ -75,6 +75,7 @@ const EXPECTED_PUBLIC_TOOLS = [
   'analyze_address',
   'analyze_address_connection',
   'analyze_account_graph',
+  'request_account_watch',
   'analyze_consensus_health',
   'analyze_transaction',
   'investigate_transactions',
@@ -98,7 +99,7 @@ describe('public tool surface', () => {
   });
 
   it('keeps the expanded high-level surface bounded', () => {
-    expect(publicToolNames().length).toBeLessThanOrEqual(57);
+    expect(publicToolNames().length).toBeLessThanOrEqual(58);
   });
 
   it('never exposes key-custody tools', () => {
@@ -187,6 +188,7 @@ describe('chain discriminator', () => {
       'build_nns_operation',
       'explorer_list_address_assets',
       'analyze_address',
+      'request_account_watch',
       'analyze_contract',
       'inspect_contract_code',
       'analyze_transaction',
@@ -228,6 +230,24 @@ describe('chain discriminator', () => {
       containerId: '3'.repeat(44),
       objectId: '4'.repeat(44),
     })).not.toThrow();
+  });
+
+  it('routes account watch requests as an N3-only external action', () => {
+    expect(PUBLIC_TOOLS.request_account_watch.readOnly).toBe(false);
+    expect(resolveRoute('request_account_watch', {
+      address: 'NZeAarn3UMCqNsTymTMF2Pn6X7Yw3GhqDv',
+      email: 'owner@example.com',
+      network: 'testnet',
+    })).toMatchObject({
+      internalName: 'request_account_watch',
+      chain: 'n3',
+      requiresServices: false,
+      args: {
+        address: 'NZeAarn3UMCqNsTymTMF2Pn6X7Yw3GhqDv',
+        email: 'owner@example.com',
+        network: 'testnet',
+      },
+    });
   });
 
   it('requires chain (no silent default) on multi-chain tools', () => {

@@ -37,6 +37,7 @@ const DEFAULT_TESTNET_RPC_URLS = [
 const DEFAULT_NEO_RPC_TIMEOUT_MS = 15_000;
 const DEFAULT_NETWORK_MODE = NetworkMode.BOTH;
 const DEFAULT_N3INDEX_BASE_URL = 'https://api.n3index.dev';
+const DEFAULT_EXPLORER_ACCOUNT_WATCH_API_URL = 'https://www.neo3scan.com/api/account-watches';
 // Neo X (EVM sidechain) Blockscout v2 explorer API hosts. The mainnet host is
 // the production explorer used by Neo-Explorer-UI (xexplorer.neo.org). The
 // testnet host is derived from the same UI's chain metadata
@@ -189,6 +190,13 @@ export const config = {
     findEnabled: readBooleanEnv('N3INDEX_FIND_ENABLED') ?? false,
   },
 
+  accountWatch: {
+    enabled: readBooleanEnv('EXPLORER_ACCOUNT_WATCH_ENABLED') ?? false,
+    apiUrl:
+      readEnv('EXPLORER_ACCOUNT_WATCH_API_URL') || DEFAULT_EXPLORER_ACCOUNT_WATCH_API_URL,
+    apiToken: readEnv('EXPLORER_ACCOUNT_WATCH_API_TOKEN'),
+  },
+
   neox: {
     mainnetExplorerApiBaseUrl:
       readEnv('NEOX_MAINNET_EXPLORER_API_BASE_URL') || DEFAULT_NEOX_MAINNET_EXPLORER_API_BASE_URL,
@@ -271,6 +279,7 @@ export function validateConfig(): void {
     'NEO_ALLOW_INSECURE_RPC',
     'N3INDEX_ENABLED',
     'N3INDEX_FIND_ENABLED',
+    'EXPLORER_ACCOUNT_WATCH_ENABLED',
     'NEOX_GRAPHQL_ENABLED',
     'LOG_CONSOLE',
     'LOG_FILE_ENABLED',
@@ -281,6 +290,28 @@ export function validateConfig(): void {
     if (process.env[key] !== undefined && readBooleanEnv(key) === undefined) {
       throw new Error(`Invalid ${key} "${process.env[key]}". Must be true or false.`);
     }
+  }
+
+  const accountWatchEnabled = readBooleanEnv('EXPLORER_ACCOUNT_WATCH_ENABLED') === true;
+  const accountWatchToken = readEnv('EXPLORER_ACCOUNT_WATCH_API_TOKEN');
+  if (accountWatchEnabled && !accountWatchToken) {
+    throw new Error(
+      'EXPLORER_ACCOUNT_WATCH_API_TOKEN is required when EXPLORER_ACCOUNT_WATCH_ENABLED=true.',
+    );
+  }
+  if (accountWatchToken && Buffer.byteLength(accountWatchToken, 'utf8') < 32) {
+    throw new Error('Invalid EXPLORER_ACCOUNT_WATCH_API_TOKEN. Must contain at least 32 bytes.');
+  }
+  try {
+    assertValidRpcUrl(config.accountWatch.apiUrl);
+    const watchUrl = new URL(config.accountWatch.apiUrl);
+    if (watchUrl.search || watchUrl.hash || watchUrl.pathname !== '/api/account-watches') {
+      throw new Error('invalid account watch url');
+    }
+  } catch {
+    throw new Error(
+      'Invalid EXPLORER_ACCOUNT_WATCH_API_URL. Use an HTTPS /api/account-watches URL without credentials, query, or fragment.',
+    );
   }
 
   const writesEnabled = readBooleanEnv('NEO_ENABLE_WRITES') === true;
@@ -362,6 +393,15 @@ export function validateConfig(): void {
   }
 
   const apiKey = readEnv('HTTP_API_KEY');
+  const mcpHttpBearer = readEnv('MCP_HTTP_BEARER');
+  if (
+    accountWatchToken
+    && (accountWatchToken === apiKey || accountWatchToken === mcpHttpBearer)
+  ) {
+    throw new Error(
+      'EXPLORER_ACCOUNT_WATCH_API_TOKEN must differ from HTTP_API_KEY and MCP_HTTP_BEARER.',
+    );
+  }
   if (apiKey && writeApprovalApiKey === apiKey) {
     throw new Error('HTTP_WRITE_APPROVAL_API_KEY must differ from HTTP_API_KEY.');
   }

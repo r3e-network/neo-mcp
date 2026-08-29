@@ -357,6 +357,21 @@ export class NeoMcpServer {
         },
       );
     };
+    const registerExternalActionTool: ToolRegistrar = (name, description, inputSchema, handler) => {
+      this.server.registerTool(
+        name,
+        {
+          description,
+          inputSchema: z.object(inputSchema),
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: false,
+            idempotentHint: true,
+          },
+        },
+        async (args, context) => handler(args as Record<string, unknown>, context) as never,
+      );
+    };
 
     // ---------------------------------------------------------------------
     // Unified public tool surface, driven by src/registry/tool-registry.ts.
@@ -368,7 +383,10 @@ export class NeoMcpServer {
     // an endpoint never duplicates a registration.
     // ---------------------------------------------------------------------
     for (const spec of listPublicTools()) {
-      registerDelegatedTool(
+      const registerPublicTool = spec.readOnly === false
+        ? registerExternalActionTool
+        : registerDelegatedTool;
+      registerPublicTool(
         spec.name,
         describePublicTool(spec),
         spec.inputSchema,

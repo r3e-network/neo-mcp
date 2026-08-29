@@ -15,7 +15,7 @@ The registry rewrites `network` per route, so callers never spell out chain-qual
 
 ## MCP Surface
 
-The default server exposes 57 non-custodial tools:
+The default server exposes 58 non-custodial tools:
 
 - Server and data utilities: `get_network_mode`, `get_wallet`, `inspect_neo_value`, `convert_neo_data`, `get_neo_service_info`, `analyze_stablecoins`
 - Chain, both chains: `get_chain_info`, `get_block_height`, `get_block`, `get_transaction`, `get_transaction_status`, `get_balance`
@@ -26,6 +26,14 @@ The default server exposes 57 non-custodial tools:
 - Explorer and intelligence: `explorer_get_address`, `analyze_address`, `analyze_account_graph`, `analyze_consensus_health`, `analyze_address_connection`, `analyze_transaction`, `investigate_transactions`, `analyze_contract`, `analyze_contract_upgrades`, `get_contract_source_verification`, `inspect_contract_code`, `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `explorer_list_address_transactions`, `explorer_list_address_transfers`, `explorer_list_token_holders`, `explorer_search`, `query_explorer`
 - Neo N3 only: `get_application_log`, `wait_for_transaction`, `get_unclaimed_gas`, `get_nep17_transfers`, `get_nep11_balances`, `get_nep11_transfers`, `get_contract_status`, `list_famous_contracts`, `estimate_transfer_fees`, `estimate_invoke_fees`, `explorer_list_address_assets`, `query_explorer_find`
 - Neo X only: `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `query_explorer_graphql`
+- Verified notification action: `request_account_watch`
+
+`request_account_watch` is Neo N3 only and requires an explicit `network`, a
+checksum-valid address, and a valid email. It is disabled by default. When
+enabled, it calls one fixed Explorer endpoint with a dedicated server-to-server
+bearer and returns `verification_pending`; it never returns the email, activates
+the subscription, signs a transaction, or broadcasts anything. The recipient
+must approve the Explorer confirmation page before notifications begin.
 
 The five `analyze_neox_*` tools are bounded, network-isolated Blockscout v2
 aggregates. They fetch the primary entity and its relevant logs, internal calls,
@@ -82,7 +90,10 @@ node's millisecond `time` value so clients do not need to reinterpret it.
 
 Every `build_*` tool returns an UNSIGNED proposal after simulating the exact payload. `build_transfer` and `build_contract_call` support both chains; `build_vote` pins the native NEO contract; `build_nns_operation` pins the network-correct NameService contract and supported argument order. They never sign or broadcast, so key custody stays with the user's wallet. `query_neofs` requires an explicit N3 `network` context and reports that the fixed NeoFS gateway is global rather than silently implying a network switch.
 
-The MCP HTTP transport is read-only by design and ignores `NEO_ENABLE_WRITES`. On a locally launched stdio server, `NEO_ENABLE_WRITES=true` adds four annotated Neo N3 tools:
+The MCP HTTP transport has no transaction write capability and ignores `NEO_ENABLE_WRITES`.
+Its optional account Watch action is an email verification request, not a chain
+write. On a locally launched stdio server, `NEO_ENABLE_WRITES=true` adds four
+annotated Neo N3 transaction tools:
 
 - `transfer_assets`
 - `invoke_contract_write`

@@ -27,7 +27,7 @@ One public tool covers a capability on both chains. Tools that both chains imple
 1. **Modularity**: The implementation is divided into separate modules with clear responsibilities.
 2. **One surface, two chains**: A single registry maps each public tool and chain pair onto a chain-specific handler, so adding a chain never duplicates a registration.
 3. **Extensibility**: The architecture allows for easy addition of new features and tools.
-4. **Security**: The server is non-custodial. It never holds keys for read traffic, and state-changing operations are opt-in, server-signed, and explicitly approved.
+4. **Security**: The server is non-custodial. It never holds keys for default traffic, transaction writes are opt-in and explicitly approved, and the optional account Watch action can only request double-opt-in email verification.
 5. **Error Handling**: Comprehensive error handling ensures that errors are properly reported and handled.
 6. **Testability**: The architecture is designed to be easily testable.
 
@@ -43,7 +43,7 @@ Argument mapping exists because the backends disagree on shape. Neo X explorer a
 
 ### MCP Server
 
-`src/index.ts` registers every public tool in one loop over `listPublicTools()`. Each registration resolves the route, lazily initializes Neo N3 services when the route needs them, and delegates to `callTool`. Write tools are registered separately and only when writes are explicitly enabled.
+`src/index.ts` registers every public tool in one loop over `listPublicTools()`. Each registration resolves the route, lazily initializes Neo N3 services when the route needs them, and delegates to `callTool`. Registry metadata distinguishes read-only tools from the non-destructive, idempotent account Watch verification action. Transaction write tools are registered separately and only when writes are explicitly enabled.
 
 ### Tool Handler
 
@@ -51,6 +51,7 @@ Argument mapping exists because the backends disagree on shape. Neo X explorer a
 
 - Chain-less meta tools answer directly.
 - Neo N3 analytics and Neo X explorer reads go to their HTTP clients and never touch the RPC layer.
+- Account Watch requests go to one configured Explorer HTTPS endpoint, use a dedicated bearer, and return only the pending-confirmation boundary.
 - Neo X simulate and construct tools use the allowlisted EVM RPC client and return unsigned proposals.
 - Neo X node reads go to the allowlisted EVM JSON-RPC client, dispatched before Neo N3 network resolution.
 - Everything else resolves a Neo N3 network and uses the Neo and contract services.

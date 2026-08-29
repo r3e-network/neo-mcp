@@ -13,7 +13,7 @@ import { TEST_WIF } from './test-wallet';
  * renaming a tool then fails with a diff that names the tool, instead of an opaque
  * "expected 40, received 41". Update this list in the same commit that registers a tool.
  */
-const READ_ONLY_TOOL_NAMES = [
+const DEFAULT_TOOL_NAMES = [
   'analyze_account_graph',
   'analyze_address',
   'analyze_address_connection',
@@ -69,6 +69,7 @@ const READ_ONLY_TOOL_NAMES = [
   'query_explorer_graphql',
   'query_neofs',
   'query_nns',
+  'request_account_watch',
   'simulate_call',
   'wait_for_transaction',
 ];
@@ -108,7 +109,7 @@ const WRITE_TOOL_NAMES = [
 ];
 
 /** Full surface with writes enabled; the count is derived, never hand-maintained. */
-const WRITE_ENABLED_TOOL_NAMES = [...READ_ONLY_TOOL_NAMES, ...WRITE_TOOL_NAMES].sort();
+const WRITE_ENABLED_TOOL_NAMES = [...DEFAULT_TOOL_NAMES, ...WRITE_TOOL_NAMES].sort();
 
 /**
  * Non-custodial tools that build or simulate transactions without ever holding a key.
@@ -276,8 +277,8 @@ describe('Modern MCP tool registration', () => {
     const response = await listTools(client!);
     const toolNames = response.tools.map(tool => tool.name);
 
-    expect(sortedToolNames(response.tools)).toEqual(READ_ONLY_TOOL_NAMES);
-    expect(response.tools).toHaveLength(READ_ONLY_TOOL_NAMES.length);
+    expect(sortedToolNames(response.tools)).toEqual(DEFAULT_TOOL_NAMES);
+    expect(response.tools).toHaveLength(DEFAULT_TOOL_NAMES.length);
     expect(toolNames).toEqual(expect.arrayContaining(NON_CUSTODIAL_CONSTRUCTION_TOOL_NAMES));
 
     expect(toolNames).not.toContain('neofs_create_container');
@@ -289,6 +290,20 @@ describe('Modern MCP tool registration', () => {
     expect(toolNames).not.toContain('invoke_contract_write');
     expect(toolNames).not.toContain('claim_gas');
     expect(toolNames).not.toContain('deploy_contract');
+  });
+
+  test('advertises account watch as a non-destructive idempotent external action', async () => {
+    const response = await listTools(client!);
+    const watch = response.tools.find(tool => tool.name === 'request_account_watch');
+
+    expect(watch?.annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+    });
+    expect(watch?.inputSchema.required).toEqual(
+      expect.arrayContaining(['address', 'email', 'network']),
+    );
   });
 
   test('advertises four annotated secret-free write tools only when explicitly enabled', async () => {
