@@ -18,6 +18,8 @@
 import { NeoNetwork } from '../services/neo-service';
 import { readBoundedJson } from '../utils/bounded-json';
 import { NetworkError, ValidationError } from '../utils/errors';
+import { assertIndexerAvailable } from '../utils/indexer-availability';
+import { createRequestAbortScope } from '../utils/request-abort-scope';
 import { config } from '../config';
 
 type FetchLike = typeof fetch;
@@ -80,25 +82,17 @@ export async function callIndexerRpc<T = unknown>(
   signal?: AbortSignal,
   fetchImpl: FetchLike = fetch,
 ): Promise<T> {
+  // Last line of defence: a handler that forgets its own gate still cannot reach the host.
+  assertIndexerAvailable('N3 indexer access');
   assertSupportedNetwork(network);
   if (!method || typeof method !== 'string') {
     throw new ValidationError('Indexer RPC method must be a non-empty string');
   }
   const url = resolveEndpoint(network);
 
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const abortFromParent = () => controller?.abort();
-  if (signal?.aborted) {
-    controller?.abort();
-  } else {
-    signal?.addEventListener('abort', abortFromParent, { once: true });
-  }
-  const timeoutId = controller
-    ? setTimeout(() => controller.abort(), DEFAULT_INDEXER_RPC_TIMEOUT_MS)
-    : null;
-  timeoutId?.unref?.();
-
+  // Serialize before allocating timers/listeners; invalid envelopes own no transport resources.
   const body = JSON.stringify({ jsonrpc: '2.0', id: nextRpcId(), method, params });
+  const scope = createRequestAbortScope(DEFAULT_INDEXER_RPC_TIMEOUT_MS, signal);
 
   try {
     const response = await fetchImpl(url, {
@@ -109,7 +103,7 @@ export async function callIndexerRpc<T = unknown>(
       },
       body,
       redirect: 'error',
-      ...(controller ? { signal: controller.signal } : {}),
+      ...(scope.signal ? { signal: scope.signal } : {}),
     });
 
     if (!response.ok) {
@@ -131,14 +125,11 @@ export async function callIndexerRpc<T = unknown>(
 
     return envelope?.result as T;
   } catch (error) {
-    if (controller?.signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
+    if (scope.aborted || (error instanceof Error && error.name === 'AbortError')) {
       throw new NetworkError(`Indexer RPC ${method} timed out after ${DEFAULT_INDEXER_RPC_TIMEOUT_MS}ms`);
     }
     throw error;
   } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-    signal?.removeEventListener('abort', abortFromParent);
+    scope.dispose();
   }
 }

@@ -1,6 +1,7 @@
 import { NeoNetwork } from '../services/neo-service';
 import { readBoundedJson } from '../utils/bounded-json';
 import { ValidationError } from '../utils/errors';
+import { assertIndexerAvailable } from '../utils/indexer-availability';
 import { validateScriptHash } from '../utils/validation';
 
 interface N3IndexContractMetadataCacheRow {
@@ -98,6 +99,8 @@ export class N3IndexClient {
     params: Record<string, string>,
     parentSignal?: AbortSignal
   ): Promise<T> {
+    // Last line of defence: a constructed client still cannot reach the host while off.
+    assertIndexerAvailable('N3 indexer access');
     const url = new URL(`${this.baseUrl}${pathname}`);
     for (const [key, value] of Object.entries(params)) {
       url.searchParams.set(key, value);

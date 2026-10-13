@@ -152,7 +152,7 @@ export async function handleN3TransactionStatus(
     } catch (error) {
       // Confirmed on chain, outcome unreadable. Reporting `false` here would
       // invent a failure; reporting `true` would hide one.
-      applicationLogError = errorMessageOf(error);
+      applicationLogError = 'Application log unavailable';
     }
 
     return createSuccessResponse({

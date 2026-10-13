@@ -8,6 +8,7 @@ import {
   validateHash,
   validateScriptHash,
   validateAmount,
+  validateEvmAmount,
   validatePassword,
   validateNetwork,
   sanitizeString,
@@ -393,6 +394,22 @@ describe('Validation Utils', () => {
         expect(error).toBeInstanceOf(ValidationError);
         expect((error as ValidationError).message).toContain('at least 8 characters');
       }
+    });
+  });
+  describe('validateEvmAmount', () => {
+    test('rejects a wei string longer than a uint256 before it reaches BigInt', () => {
+      expect(validateEvmAmount('1'.repeat(78))).toBe('1'.repeat(78));
+      expect(() => validateEvmAmount('1'.repeat(79))).toThrow(ValidationError);
+      expect(() => validateEvmAmount('1'.repeat(79))).toThrow(/78-digit limit/);
+    });
+
+    test('accepts decimal strings, safe integers and bigints, and canonicalises', () => {
+      expect(validateEvmAmount('1000000000000000000')).toBe('1000000000000000000');
+      expect(validateEvmAmount('007')).toBe('7');
+      expect(validateEvmAmount(0, { allowZero: true })).toBe('0');
+      expect(validateEvmAmount(1n)).toBe('1');
+      expect(() => validateEvmAmount(-1n)).toThrow(/must not be negative/);
+      expect(() => validateEvmAmount(0)).toThrow(/greater than zero/);
     });
   });
 });

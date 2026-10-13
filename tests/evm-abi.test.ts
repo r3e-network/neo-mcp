@@ -81,4 +81,25 @@ describe('evm-abi encoding', () => {
   test('rejects a bad address argument', () => {
     expect(() => encodeAbiParameters(['address'], ['0xnot-an-address'])).toThrow(ValidationError);
   });
+
+  test('rejects oversized dynamic data and argument lists before encoding', () => {
+    expect(() => encodeAbiParameters(['string'], ['x'.repeat(64 * 1024 + 1)])).toThrow(/65536.*byte/i);
+    expect(() => encodeAbiParameters(['bytes'], ['0x' + 'ab'.repeat(64 * 1024 + 1)])).toThrow(/65536.*byte/i);
+    expect(() => encodeAbiParameters(Array.from({ length: 65 }, () => 'uint256'), Array(65).fill(1))).toThrow(/64.*argument/i);
+    expect(() => encodeFunctionCall(`f(${Array(65).fill('uint256').join(',')})`, Array(65).fill(1))).toThrow(/64.*argument/i);
+  });
+
+  test('parseFunctionSignature bounds its own signature length and argument count', () => {
+    expect(() => parseFunctionSignature('g'.repeat(1025))).toThrow(/1024-character limit/);
+    expect(() => parseFunctionSignature(`f(${Array(65).fill('uint256').join(',')})`)).toThrow(/64-argument limit/);
+    expect(parseFunctionSignature('balanceOf(address)')).toEqual({ name: 'balanceOf', types: ['address'] });
+  });
+
+  test('rejects ABI output that exceeds the calldata budget', () => {
+    // Each argument is individually within its 64 KiB cap; together they blow the 128 KiB
+    // calldata budget, which must be refused rather than shipped into a transaction.
+    const huge = 'x'.repeat(64 * 1024);
+    expect(() => encodeAbiParameters(['string', 'string', 'string'], [huge, huge, huge]))
+      .toThrow(/131072.*byte/i);
+  });
 });

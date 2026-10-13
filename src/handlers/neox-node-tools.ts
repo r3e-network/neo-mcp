@@ -17,7 +17,7 @@ import { neoxNodeCall } from '../chains/neox-node-adapter';
 import type { FetchLike } from '../contracts/evm-rpc-client';
 import { ValidationError } from '../utils/errors';
 import { createSuccessResponse, handleError } from '../utils/error-handler';
-import { encodeFunctionCall } from '../utils/evm-abi';
+import { encodeFunctionCall, MAX_ABI_CALLDATA_BYTES } from '../utils/evm-abi';
 import { validateEvmAddress, validateEvmHash } from '../utils/validation';
 
 /** Wei per GAS on Neo X — the native token uses 18 decimals, as on Ethereum. */
@@ -28,6 +28,7 @@ const BLOCK_TAGS: ReadonlySet<string> = new Set(['latest', 'earliest', 'pending'
 
 const HEX_DATA_PATTERN = /^0x([0-9a-fA-F]{2})*$/;
 const DECIMAL_PATTERN = /^[0-9]+$/;
+const MAX_BLOCK_REFERENCE_LENGTH = 80;
 
 /**
  * The Neo X node tools. These names are internal routing targets: the public
@@ -126,6 +127,9 @@ function resolveBlockLookup(reference: unknown): { method: string; param: string
     throw new ValidationError('A block hash, height, or tag is required.');
   }
   const trimmed = reference.trim();
+  if (trimmed.length > MAX_BLOCK_REFERENCE_LENGTH) {
+    throw new ValidationError(`Block reference exceeds the ${MAX_BLOCK_REFERENCE_LENGTH}-character limit`);
+  }
   if (BLOCK_TAGS.has(trimmed.toLowerCase())) {
     return { method: 'eth_getBlockByNumber', param: trimmed.toLowerCase() };
   }
@@ -148,6 +152,9 @@ function requireEvmData(value: unknown, label: string): string {
   const prefixed = trimmed.startsWith('0x') ? trimmed : `0x${trimmed}`;
   if (!HEX_DATA_PATTERN.test(prefixed)) {
     throw new ValidationError(`${label} must be 0x-prefixed hex with an even number of digits`);
+  }
+  if ((prefixed.length - 2) / 2 > MAX_ABI_CALLDATA_BYTES) {
+    throw new ValidationError(`${label} exceeds the ${MAX_ABI_CALLDATA_BYTES}-byte limit`);
   }
   return prefixed.toLowerCase();
 }

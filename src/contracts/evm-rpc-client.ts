@@ -13,6 +13,7 @@
 
 import { readBoundedJson } from '../utils/bounded-json';
 import { NetworkError, ValidationError } from '../utils/errors';
+import { createRequestAbortScope } from '../utils/request-abort-scope';
 import { config } from '../config';
 
 export type FetchLike = typeof fetch;
@@ -236,19 +237,9 @@ async function postEvmRpc<T>(
   signal: AbortSignal | undefined,
   fetchImpl: FetchLike,
 ): Promise<T> {
-  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-  const abortFromParent = () => controller?.abort();
-  if (signal?.aborted) {
-    controller?.abort();
-  } else {
-    signal?.addEventListener('abort', abortFromParent, { once: true });
-  }
-  const timeoutId = controller
-    ? setTimeout(() => controller.abort(), DEFAULT_EVM_RPC_TIMEOUT_MS)
-    : null;
-  timeoutId?.unref?.();
-
+  // Serialize before allocating timers/listeners; invalid envelopes own no transport resources.
   const body = JSON.stringify({ jsonrpc: '2.0', id: nextRpcId(), method, params });
+  const scope = createRequestAbortScope(DEFAULT_EVM_RPC_TIMEOUT_MS, signal);
 
   try {
     const response = await fetchImpl(url, {
@@ -259,7 +250,7 @@ async function postEvmRpc<T>(
       },
       body,
       redirect: 'error',
-      ...(controller ? { signal: controller.signal } : {}),
+      ...(scope.signal ? { signal: scope.signal } : {}),
     });
 
     if (!response.ok) {
@@ -285,7 +276,7 @@ async function postEvmRpc<T>(
     if (error instanceof NetworkError || error instanceof ValidationError) {
       throw error;
     }
-    if (controller?.signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
+    if (scope.aborted || (error instanceof Error && error.name === 'AbortError')) {
       // A timeout is only worth retrying elsewhere when it was this endpoint
       // stalling; a caller-initiated abort must stop the whole call.
       const timeout = new NetworkError(
@@ -298,9 +289,6 @@ async function postEvmRpc<T>(
       new NetworkError(error instanceof Error ? error.message : `Neo X RPC ${method} failed`)
     );
   } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-    signal?.removeEventListener('abort', abortFromParent);
+    scope.dispose();
   }
 }

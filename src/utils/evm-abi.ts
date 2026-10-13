@@ -9,6 +9,11 @@
 
 import { ValidationError } from './errors';
 
+export const MAX_ABI_SIGNATURE_LENGTH = 1024;
+export const MAX_ABI_ARGUMENTS = 64;
+export const MAX_ABI_DYNAMIC_BYTES = 64 * 1024;
+export const MAX_ABI_CALLDATA_BYTES = 128 * 1024;
+
 // --- keccak256 (Keccak-f[1600], rate 136, 0x01 domain padding) -------------
 
 const KECCAK_ROUND_CONSTANTS: bigint[] = [
@@ -130,6 +135,9 @@ export function parseFunctionSignature(signature: string): { name: string; types
   if (typeof signature !== 'string') {
     throw new ValidationError('functionSignature must be a string');
   }
+  if (signature.length > MAX_ABI_SIGNATURE_LENGTH) {
+    throw new ValidationError(`functionSignature exceeds the ${MAX_ABI_SIGNATURE_LENGTH}-character limit`);
+  }
   const trimmed = signature.replace(/\s+/g, '');
   const match = FUNCTION_SIGNATURE_PATTERN.exec(trimmed);
   if (!match) {
@@ -139,6 +147,9 @@ export function parseFunctionSignature(signature: string): { name: string; types
   }
   const [, name, rawTypes] = match;
   const types = rawTypes.length === 0 ? [] : rawTypes.split(',');
+  if (types.length > MAX_ABI_ARGUMENTS) {
+    throw new ValidationError(`ABI argument count exceeds the ${MAX_ABI_ARGUMENTS}-argument limit`);
+  }
   return { name, types };
 }
 
@@ -224,6 +235,9 @@ function hexArgToBytes(value: unknown, label: string): Uint8Array {
   if (body.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(body)) {
     throw new ValidationError(`Invalid ${label} ABI argument (not even-length hex): ${value}`);
   }
+  if (body.length / 2 > MAX_ABI_DYNAMIC_BYTES) {
+    throw new ValidationError(`${label} ABI argument exceeds the ${MAX_ABI_DYNAMIC_BYTES}-byte limit`);
+  }
   const bytes = new Uint8Array(body.length / 2);
   for (let i = 0; i < bytes.length; i++) {
     bytes[i] = parseInt(body.slice(i * 2, i * 2 + 2), 16);
@@ -291,6 +305,9 @@ function encodeComponent(type: string, value: unknown): EncodedComponent {
       throw new ValidationError('string ABI argument must be a string');
     }
     const bytes = new TextEncoder().encode(value);
+    if (bytes.length > MAX_ABI_DYNAMIC_BYTES) {
+      throw new ValidationError(`string ABI argument exceeds the ${MAX_ABI_DYNAMIC_BYTES}-byte limit`);
+    }
     const lengthWord = padLeft32(bytes.length.toString(16));
     const data = bytes.length === 0 ? '' : padRightToWord(toHex(bytes));
     return { dynamic: true, hex: lengthWord + data };
@@ -311,6 +328,9 @@ export function encodeAbiParameters(types: string[], values: unknown[]): string 
       `ABI argument count mismatch: signature expects ${types.length}, received ${values.length}`
     );
   }
+  if (types.length > MAX_ABI_ARGUMENTS) {
+    throw new ValidationError(`ABI argument count exceeds the ${MAX_ABI_ARGUMENTS}-argument limit`);
+  }
 
   const components = types.map((type, index) => encodeComponent(type.trim(), values[index]));
   const headWords = components.length;
@@ -325,7 +345,11 @@ export function encodeAbiParameters(types: string[], values: unknown[]): string 
       head += component.hex;
     }
   }
-  return `0x${head}${tail}`;
+  const encoded = `0x${head}${tail}`;
+  if ((encoded.length - 2) / 2 > MAX_ABI_CALLDATA_BYTES) {
+    throw new ValidationError(`ABI calldata exceeds the ${MAX_ABI_CALLDATA_BYTES}-byte limit`);
+  }
+  return encoded;
 }
 
 /**

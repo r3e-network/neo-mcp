@@ -873,7 +873,7 @@ export class NeoService {
           } catch (error) {
             result.applicationLogError = error instanceof RpcDeadlineError
               ? 'Application log was not available before the timeout'
-              : error instanceof Error ? error.message : String(error);
+              : 'Application log unavailable';
           }
         }
 

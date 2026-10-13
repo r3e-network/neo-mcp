@@ -852,7 +852,7 @@ test('waitForTransaction preserves confirmation when the optional application lo
     confirmed: true,
     blockHeight: mockTransactionHeight,
     transaction: mockTransaction,
-    applicationLogError: 'Failed to get application log for 0xabcdef1234567890: Application log unavailable',
+    applicationLogError: 'Application log unavailable',
   });
 });
 

@@ -195,7 +195,7 @@ describe('handleN3TransactionStatus', () => {
     // Neither true nor false: the chain accepted the transaction, but whether
     // the script halted is unknown, and guessing would be worse than saying so.
     expect(result.succeeded).toBeNull();
-    expect(result.applicationLogError).toMatch(/rpc timeout/);
+    expect(result.applicationLogError).toBe('Application log unavailable');
   });
 
   it('tolerates a transaction confirmed without a reachable chain tip', async () => {

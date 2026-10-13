@@ -23,6 +23,7 @@ import {
 } from '../utils/validation';
 import { handleError, createSuccessResponse } from '../utils/error-handler';
 import { chargeClientRateLimit } from '../utils/client-rate-limit';
+import { assertIndexerAvailable } from '../utils/indexer-availability';
 import { callIndexerRpc } from '../contracts/indexer-rpc-client';
 import { assertAllowedEndpoint, buildEndpointRequest } from '../indexer/blockscout-query-guard';
 import { assertAllowedCollection, validateFind } from '../indexer/indexer-find-guard';
@@ -448,6 +449,8 @@ async function dispatchN3RestEndpoint(
   params: Record<string, unknown>,
 ): Promise<unknown> {
   try {
+    // Refuse before the network, the URL or the envelope exists.
+    assertIndexerAvailable(endpoint);
     const network = resolveIndexerNetwork(input);
     const desc = assertAllowedN3Endpoint(endpoint);
     const { path, params: query } = buildN3EndpointRequest(desc, params);
@@ -520,6 +523,9 @@ async function handleN3ContractByName(input: Record<string, unknown>): Promise<u
  */
 async function handleQueryIndexer(input: Record<string, unknown>): Promise<unknown> {
   try {
+    // The refusal names the endpoint key the caller asked for (e.g. `analyze_address`),
+    // so a gated tool is a diagnosis rather than a blank failure.
+    assertIndexerAvailable(typeof input.method === 'string' && input.method.trim() ? input.method.trim() : 'query_indexer');
     const network = resolveIndexerNetwork(input);
     const desc = assertAllowedN3Endpoint(typeof input.method === 'string' ? input.method : '');
     // Prefer an explicit `params` object; otherwise fall back to the flat input MINUS the
@@ -553,6 +559,9 @@ async function handleQueryIndexer(input: Record<string, unknown>): Promise<unkno
  */
 async function handleQueryIndexerFind(input: Record<string, unknown>): Promise<unknown> {
   try {
+    // The master switch is checked first: with the indexer surface off this tool must
+    // not reach the host even when its own phase-2 flag is on.
+    assertIndexerAvailable('query_indexer_find');
     if (!config.n3index.findEnabled) {
       return handleError(
         new ValidationError('query_indexer_find is disabled; enable N3INDEX_FIND_ENABLED'),
@@ -633,6 +642,7 @@ function isUsdCandidate(record: Record<string, unknown>): boolean {
 
 async function handleN3AnalyzeStablecoins(input: Record<string, unknown>): Promise<unknown> {
   try {
+    assertIndexerAvailable('n3_analyze_stablecoins');
     const network = resolveIndexerNetwork(input);
     let candidateRows: Record<string, unknown>[] = [];
     let discovery: 'full_text_search' | 'bounded_token_registry_scan' = 'full_text_search';

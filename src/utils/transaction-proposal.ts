@@ -11,6 +11,7 @@ import * as neonJs from '@cityofzion/neon-js';
 import { ValidationError } from './errors';
 import { formatContractParameters, FormattedContractParameter } from './contract-params';
 import { validateAddress, validateScriptHash, validateEvmAddress, validateEvmAmount } from './validation';
+import { MAX_ABI_CALLDATA_BYTES } from './evm-abi';
 
 // Native NEP-17 contract hashes (identical on Neo N3 mainnet and testnet).
 export const NEO_NATIVE_SCRIPT_HASH = '0xef4073a0f2b305a38ec4050e4d3d28bc40ea63f5';
@@ -265,6 +266,9 @@ export function normalizeCalldata(data: unknown): string {
   const body = data.startsWith('0x') || data.startsWith('0X') ? data.slice(2) : data;
   if (body.length % 2 !== 0 || !/^[0-9a-fA-F]*$/.test(body)) {
     throw new ValidationError(`Invalid calldata (not even-length hex): ${data}`);
+  }
+  if (body.length / 2 > MAX_ABI_CALLDATA_BYTES) {
+    throw new ValidationError(`Calldata exceeds the ${MAX_ABI_CALLDATA_BYTES}-byte limit`);
   }
   return `0x${body.toLowerCase()}`;
 }

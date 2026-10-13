@@ -21,6 +21,8 @@ const SCRIPT_HASH_LENGTH = 40; // 20 bytes * 2 chars per byte
 const HEX_PATTERN = /^[0-9a-fA-F]+$/;
 const POSITIVE_NUMBER_PATTERN = /^[0-9]+(\.[0-9]+)?$/;
 const POSITIVE_INTEGER_PATTERN = /^[0-9]+$/;
+/** A uint256 has at most 78 decimal digits; reject larger input before BigInt. */
+export const MAX_EVM_AMOUNT_DIGITS = 78;
 
 /**
  * Validate Neo N3 address format
@@ -255,6 +257,9 @@ export function validateEvmAmount(
     normalized = amount.toString();
   } else if (typeof amount === 'string') {
     const trimmed = amount.trim();
+    if (trimmed.length > MAX_EVM_AMOUNT_DIGITS) {
+      throw new ValidationError(`Wei amount exceeds the ${MAX_EVM_AMOUNT_DIGITS}-digit limit`);
+    }
     if (!POSITIVE_INTEGER_PATTERN.test(trimmed)) {
       throw new ValidationError(`Invalid wei amount: ${amount}. Must be a non-negative integer string (no decimals or exponent).`);
     }

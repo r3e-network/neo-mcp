@@ -190,6 +190,15 @@ describe('x_node_get_block', () => {
     expect(text).toMatch(/block/i);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+
+  test('rejects an oversized block reference without touching the network', async () => {
+    const { fetchImpl } = rpcStub({});
+    const text = errorTextOf(
+      await dispatchNeoxNodeTool('x_node_get_block', { blockHashOrHeight: 'b'.repeat(81) }, fetchImpl as never),
+    );
+    expect(text).toMatch(/80-character limit/i);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
 });
 
 describe('x_node_get_transaction', () => {
@@ -400,6 +409,16 @@ describe('x_node_call_contract', () => {
         await dispatchNeoxNodeTool('x_node_call_contract', { contract, data: 'DROP TABLE' }, fetchImpl as never),
       ),
     ).toMatch(/hex/i);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  test('rejects oversized calldata before touching the network', async () => {
+    const contract = '0x' + 'dd'.repeat(20);
+    const { fetchImpl } = rpcStub({});
+    const data = '0x' + 'aa'.repeat(128 * 1024 + 1);
+    expect(
+      errorTextOf(await dispatchNeoxNodeTool('x_node_call_contract', { contract, data }, fetchImpl as never)),
+    ).toMatch(/131072.*byte/i);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 });

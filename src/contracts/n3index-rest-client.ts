@@ -18,6 +18,7 @@
 import { NeoNetwork } from '../services/neo-service';
 import { readBoundedJson } from '../utils/bounded-json';
 import { NetworkError, ValidationError } from '../utils/errors';
+import { assertIndexerAvailable } from '../utils/indexer-availability';
 import { config } from '../config';
 
 type FetchLike = typeof fetch;
@@ -82,6 +83,8 @@ export async function fetchN3Index<T = unknown>(
   signal?: AbortSignal,
   fetchImpl: FetchLike = fetch,
 ): Promise<T | null> {
+  // Last line of defence: a handler that forgets its own gate still cannot reach the host.
+  assertIndexerAvailable('N3 indexer access');
   assertN3IndexNetwork(network);
   const url = buildUrl(network, path, params);
 

@@ -24,7 +24,8 @@ import {
   MAX_GRAPHQL_DEPTH,
   MAX_GRAPHQL_FIELDS,
 } from './indexer/blockscout-graphql-guard';
-import { listPublicTools, resolveRoute, PublicToolSpec } from './registry/tool-registry';
+import { listPublicTools, PublicToolSpec } from './registry/tool-registry';
+import { createPublicToolDispatcher } from './handlers/public-tool-dispatch';
 import { config, NetworkMode, validateConfig } from './config';
 import { SERVER_NAME, SERVER_VERSION } from './version';
 import { logger } from './utils/logger';
@@ -382,6 +383,18 @@ export class NeoMcpServer {
     // resolves the requested chain to an internal handler, so adding a chain or
     // an endpoint never duplicates a registration.
     // ---------------------------------------------------------------------
+    const dispatchPublicTool = createPublicToolDispatcher({
+      initializeServices: () => this.ensureServicesInitialized(),
+      invoke: (route) => callTool(
+        route.internalName,
+        route.args,
+        this.neoServices,
+        this.contractServices,
+        route.requiresWallet ? this.walletService : undefined,
+      ),
+      success: (result) => this.formatDelegatedToolResponse(result),
+      failure: (error) => this.createErrorResponse(error),
+    });
     for (const spec of listPublicTools()) {
       const registerPublicTool = spec.readOnly === false
         ? registerExternalActionTool
@@ -390,24 +403,7 @@ export class NeoMcpServer {
         spec.name,
         describePublicTool(spec),
         spec.inputSchema,
-        async (args) => {
-          try {
-            const route = resolveRoute(spec.name, (args ?? {}) as Record<string, unknown>);
-            if (route.requiresServices) {
-              await this.ensureServicesInitialized();
-            }
-            const result = await callTool(
-              route.internalName,
-              route.args,
-              this.neoServices,
-              this.contractServices,
-              route.requiresWallet ? this.walletService : undefined,
-            );
-            return this.formatDelegatedToolResponse(result);
-          } catch (error: unknown) {
-            return this.createErrorResponse(error);
-          }
-        },
+        (args) => dispatchPublicTool(spec.name, args),
       );
     }
 

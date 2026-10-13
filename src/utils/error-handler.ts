@@ -79,6 +79,8 @@ const ERROR_MAPPINGS: Record<string, { message: string, code: ProtocolErrorCode 
   }
 };
 
+const GENERIC_INTERNAL_MESSAGE = 'The operation could not be completed. Please retry later.';
+
 /**
  * Find the appropriate error mapping based on error message
  * @param errorMessage The error message to match
@@ -99,6 +101,20 @@ function findErrorMapping(errorMessage: string): { message: string, code: Protoc
     }
   }
 
+  return undefined;
+}
+
+function safeKnownError(errorMessage: string): { message: string; code: ProtocolErrorCode } | undefined {
+  // Preserve a useful deployment diagnostic while accepting only the small,
+  // validated shape emitted by ContractService. All other upstream text stays
+  // behind the generic response below.
+  const deployment = /^Contract ([A-Za-z0-9._-]{1,64}) is not deployed on (mainnet|testnet)$/i.exec(errorMessage);
+  if (deployment) {
+    return {
+      message: `Contract ${deployment[1]} is not deployed on ${deployment[2]}`,
+      code: ProtocolErrorCode.InvalidParams,
+    };
+  }
   return undefined;
 }
 
@@ -161,10 +177,14 @@ export function handleError(error: unknown): { error: { message: string, code: P
       };
     }
 
-    // If no mapping found, use the original message
+    const safe = safeKnownError(errObj.message);
+    if (safe) return { error: safe };
+
+    // Do not return upstream or infrastructure details to callers. Diagnostics
+    // are already recorded by the protected server logger above.
     return {
       error: {
-        message: errObj.message,
+        message: GENERIC_INTERNAL_MESSAGE,
         code: ProtocolErrorCode.InternalError
       }
     };
@@ -184,7 +204,7 @@ export function handleError(error: unknown): { error: { message: string, code: P
 
     return {
       error: {
-        message: error,
+        message: GENERIC_INTERNAL_MESSAGE,
         code: ProtocolErrorCode.InternalError
       }
     };

@@ -376,6 +376,31 @@ describe('x_build_contract_call', () => {
     expect((res as any).result.tx.data).toBe('0xabcdef');
   });
 
+  test('rejects oversized pre-encoded calldata before any RPC call', async () => {
+    const spy = stubEvmRpc({ eth_call: '0x', eth_estimateGas: '0x1', eth_gasPrice: '0x1' });
+    await expect(
+      handleXBuildContractCall({
+        network: 'neox-mainnet',
+        from: EVM_FROM,
+        to: EVM_TO,
+        data: '0x' + 'ab'.repeat(128 * 1024 + 1),
+      }),
+    ).rejects.toThrow(/131072.*byte/i);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  test('still accepts calldata at the byte limit', async () => {
+    stubEvmRpc({ eth_call: '0x', eth_estimateGas: '0x1', eth_gasPrice: '0x1' });
+    const data = '0x' + 'ab'.repeat(128 * 1024);
+    const res = await handleXBuildContractCall({
+      network: 'neox-mainnet',
+      from: EVM_FROM,
+      to: EVM_TO,
+      data,
+    });
+    expect((res as any).result.tx.data).toBe(data);
+  });
+
   test('rejects when neither data nor functionSignature is provided', async () => {
     stubEvmRpc({ eth_call: '0x', eth_estimateGas: '0x1', eth_gasPrice: '0x1' });
     await expect(
