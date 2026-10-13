@@ -29,6 +29,7 @@ import { createPublicToolDispatcher } from './handlers/public-tool-dispatch';
 import { config, NetworkMode, validateConfig } from './config';
 import { SERVER_NAME, SERVER_VERSION } from './version';
 import { logger } from './utils/logger';
+import { renderJsonText } from './utils/error-handler';
 import {
   bindRateLimitClientId as bindScopeRateLimitClientId,
   chargeClientRateLimit,
@@ -103,7 +104,7 @@ export class NeoMcpServer {
       content: [
         {
           type: 'text' as const,
-          text: JSON.stringify(payload, null, 2),
+          text: renderJsonText(payload),
         },
       ],
     };

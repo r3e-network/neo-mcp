@@ -231,6 +231,21 @@ export function createSuccessResponse(data: unknown): { result: unknown } {
 }
 
 /**
+ * Serialize a payload into the JSON `text` body of an MCP content block.
+ *
+ * This is the single render boundary at which untrusted response fields (transfer counterparties,
+ * hashes, amounts) leave the process as text. `JSON.stringify` performs the structural escaping:
+ * quotes, backslashes and control characters inside a value cannot break the JSON frame or inject a
+ * sibling key. Every text response goes through here so the escaping is pinned in one place.
+ *
+ * @param data Payload to render
+ * @returns Pretty-printed JSON text
+ */
+export function renderJsonText(data: unknown): string {
+  return JSON.stringify(data, null, 2);
+}
+
+/**
  * Create a tool response in the correct MCP format
  * @param data Data to include in the response
  * @returns MCP-compatible tool response
@@ -240,7 +255,7 @@ export function createToolResponse(data: unknown): { content: Array<{ type: stri
     content: [
       {
         type: "text",
-        text: JSON.stringify(data, null, 2)
+        text: renderJsonText(data)
       }
     ]
   };
