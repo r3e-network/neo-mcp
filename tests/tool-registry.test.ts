@@ -16,6 +16,9 @@
  *   - the service/wallet requirements each route carries.
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+
 import {
   PUBLIC_TOOLS,
   ToolRoute,
@@ -26,6 +29,8 @@ import {
   supportedChains,
 } from '../src/registry/tool-registry';
 import { ValidationError } from '../src/utils/errors';
+
+const repoRoot = path.resolve(__dirname, '..');
 
 const EXPECTED_PUBLIC_TOOLS = [
   // meta
@@ -104,14 +109,59 @@ describe('public tool surface', () => {
     expect(publicToolNames()).toEqual(EXPECTED_PUBLIC_TOOLS);
   });
 
-  it('keeps the expanded high-level surface bounded', () => {
-    expect(publicToolNames().length).toBeLessThanOrEqual(64);
-    expect(publicToolNames().length).toBeLessThanOrEqual(59);
-    // The bound is the exact size of the reviewed public surface, not a headroom
+  it('pins the exact size of the reviewed public surface', () => {
+    // The pin is the exact size of the reviewed public surface, not a headroom
     // allowance: every addition is a deliberate edit here and must re-bless this
-    // number in the same change. It has moved 58 -> 59 for summarize_account_activity,
-    // and lands at 63 once the four app intent and skills entries are counted too.
-    expect(publicToolNames().length).toBeLessThanOrEqual(63);
+    // number in the same change. It has moved 58 -> 62 (app intent and skills)
+    // -> 63 (resolve_recipient) -> 64 (summarize_account_activity).
+    expect(publicToolNames().length).toBe(64);
+  });
+
+  it('pins an empty set of duplicate or stale surface-size assertions', () => {
+    // A stale assertion left behind by a later edit is the same defect as a
+    // duplicated declaration. Collect every hardcoded surface-size pin in the
+    // files that have carried one and require the offender set to be empty:
+    // no upper bounds (the accumulated-bounds shape), exactly one numeric pin,
+    // and that pin must equal the reviewed surface size.
+    const pinSources = [
+      'tests/tool-registry.test.ts',
+      'tests/mcp-http-transport.test.ts',
+      'tests/account-activity-auditor-gaps.test.ts',
+    ];
+    const offenders: string[] = [];
+    const numericPins: string[] = [];
+    for (const relativePath of pinSources) {
+      const text = fs.readFileSync(path.join(repoRoot, relativePath), 'utf8');
+      for (const match of text.matchAll(
+        /publicToolNames\(\)\.length\)\.toBeLessThanOrEqual\((\d+)\)/g,
+      )) {
+        offenders.push(`${relativePath}: upper bound <= ${match[1]} on the public tool count`);
+      }
+      for (const match of text.matchAll(
+        /publicToolNames\(\)\.length\)\.toBe\((\d+)\)/g,
+      )) {
+        numericPins.push(`${relativePath}: toBe(${match[1]})`);
+        if (Number(match[1]) !== publicToolNames().length) {
+          offenders.push(
+            `${relativePath}: pin ${match[1]} does not match the reviewed surface size ${publicToolNames().length}`,
+          );
+        }
+      }
+      for (const match of text.matchAll(
+        /listed\.tools\)\.toHaveLength\((\d+)\)/g,
+      )) {
+        numericPins.push(`${relativePath}: toHaveLength(${match[1]})`);
+        if (Number(match[1]) !== publicToolNames().length) {
+          offenders.push(
+            `${relativePath}: pin ${match[1]} does not match the reviewed surface size ${publicToolNames().length}`,
+          );
+        }
+      }
+    }
+    if (numericPins.length > 1) {
+      offenders.push(`duplicate surface-size pins: ${numericPins.join(', ')}`);
+    }
+    expect(offenders).toEqual([]);
   });
 
   it('never exposes key-custody tools', () => {

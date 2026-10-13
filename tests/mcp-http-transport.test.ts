@@ -17,6 +17,7 @@ import {
   withWritesDisabled,
 } from '../src/mcp-http-server';
 import { config } from '../src/config';
+import { publicToolNames } from '../src/registry/tool-registry';
 
 jest.setTimeout(30_000);
 
@@ -140,10 +141,11 @@ describe('MCP 2026-07-28 stateless HTTP transport', () => {
       expect(transport.sessionId).toBeUndefined();
 
       const listed = await client.listTools();
-      // The advertised surface is pinned by hand and re-blessed in the same change that
-      // adds an entry: 58 before the app intent and skills names, 62 after them, 63 with
-      // summarize_account_activity. tests/tool-registry.test.ts pins the same size.
-      expect(listed.tools).toHaveLength(63);
+      // The HTTP advertisement is driven by the same registry the server
+      // registers from, so the honest check is the advertised name set equals
+      // the registry name set. The reviewed surface size itself is pinned once,
+      // by an exact equality in tests/tool-registry.test.ts.
+      expect(listed.tools.map((tool) => tool.name).sort()).toEqual(publicToolNames().slice().sort());
       expect(listed.tools.map((tool) => tool.name)).toContain('summarize_account_activity');
       expect(listed.tools.map((tool) => tool.name)).toContain('analyze_address');
       expect(listed.tools.map((tool) => tool.name)).toContain('analyze_account_graph');

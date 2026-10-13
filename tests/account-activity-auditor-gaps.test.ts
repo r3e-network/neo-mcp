@@ -282,7 +282,6 @@ describe('auditor gap (iv) — the surface pin admits no signing or key-custody 
     expect(s.canSign).toBe(false);
     expect(s.canBroadcast).toBe(false);
     expect(PUBLIC_TOOLS['summarize_account_activity'].readOnly).toBe(true);
-    expect(publicToolNames().length).toBeLessThanOrEqual(63);
   });
 });
 
