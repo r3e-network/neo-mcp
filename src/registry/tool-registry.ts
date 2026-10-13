@@ -171,6 +171,50 @@ const SPECS: PublicToolSpec[] = [
     routes: { meta: { internalName: 'get_network_mode' } },
   },
   {
+    name: 'list_apps',
+    description: 'List published NeoOS MiniApps and MiniGames from the trusted catalogs. Read-only discovery for natural-language app intents.',
+    inputSchema: {
+      query: z.string().max(120).optional().describe('Name, tag, or description filter'),
+      category: z.string().max(80).optional().describe('App category filter'),
+      network: z.enum(['neo-n3-mainnet', 'neo-n3-testnet', 'neo-x-mainnet', 'neo-x-testnet']).optional().describe('Only apps supporting this network'),
+    },
+    chains: [],
+    routes: { meta: { internalName: 'list_apps' } },
+  },
+  {
+    name: 'get_app_capabilities',
+    description: 'Inspect an app or game intent capability declaration, including typed actions and parameter schemas. Read-only.',
+    inputSchema: {
+      appId: z.string().min(1).max(200).describe('Published MiniApp id'),
+      network: z.enum(['neo-n3-mainnet', 'neo-n3-testnet', 'neo-x-mainnet', 'neo-x-testnet']).optional(),
+    },
+    chains: [],
+    routes: { meta: { internalName: 'get_app_capabilities' } },
+  },
+  {
+    name: 'list_skills',
+    description: 'List declarative skills published by NeoOS apps and games. Skills only group declared capabilities and never grant authority. Read-only.',
+    inputSchema: {
+      appId: z.string().max(200).optional().describe('Optional published app or game id'),
+      query: z.string().max(120).optional().describe('Search skill name, description, or keywords'),
+    },
+    chains: [],
+    routes: { meta: { internalName: 'list_skills' } },
+  },
+  {
+    name: 'draft_app_intent',
+    description: 'Prepare a deterministic, unsigned app or game intent draft. Actions must be declared or safely derived by the published release; this never signs, submits, or broadcasts.',
+    inputSchema: {
+      appId: z.string().min(1).max(200).describe('Published MiniApp id'),
+      action: z.string().min(1).max(96).describe('Exact declared capability action id'),
+      network: z.enum(['neo-n3-mainnet', 'neo-n3-testnet', 'neo-x-mainnet', 'neo-x-testnet']).optional(),
+      params: z.record(z.string(), z.unknown()).optional().describe('Typed capability parameters'),
+      walletAddress: z.string().max(128).optional().describe('Connected wallet address; metadata only, never a private key'),
+    },
+    chains: [],
+    routes: { meta: { internalName: 'draft_app_intent' } },
+  },
+  {
     name: 'get_wallet',
     description:
       'Get sanitized metadata for a locally stored wallet by address. Never returns private '

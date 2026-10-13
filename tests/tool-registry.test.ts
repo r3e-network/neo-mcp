@@ -30,6 +30,10 @@ import { ValidationError } from '../src/utils/errors';
 const EXPECTED_PUBLIC_TOOLS = [
   // meta
   'get_network_mode',
+  'list_apps',
+  'get_app_capabilities',
+  'list_skills',
+  'draft_app_intent',
   'get_wallet',
   'inspect_neo_value',
   'convert_neo_data',
@@ -99,7 +103,7 @@ describe('public tool surface', () => {
   });
 
   it('keeps the expanded high-level surface bounded', () => {
-    expect(publicToolNames().length).toBeLessThanOrEqual(58);
+    expect(publicToolNames().length).toBeLessThanOrEqual(64);
   });
 
   it('never exposes key-custody tools', () => {

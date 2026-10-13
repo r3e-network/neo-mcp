@@ -34,6 +34,7 @@ const DEFAULT_TOOL_NAMES = [
   'call_contract',
   'convert_neo_data',
   'decode_neo_script',
+  'draft_app_intent',
   'estimate_invoke_fees',
   'estimate_transfer_fees',
   'explorer_get_address',
@@ -42,6 +43,7 @@ const DEFAULT_TOOL_NAMES = [
   'explorer_list_address_transfers',
   'explorer_list_token_holders',
   'explorer_search',
+  'get_app_capabilities',
   'get_application_log',
   'get_balance',
   'get_block',
@@ -63,7 +65,9 @@ const DEFAULT_TOOL_NAMES = [
   'inspect_contract_code',
   'inspect_neo_value',
   'investigate_transactions',
+  'list_apps',
   'list_famous_contracts',
+  'list_skills',
   'query_explorer',
   'query_explorer_find',
   'query_explorer_graphql',
@@ -280,6 +284,13 @@ describe('Modern MCP tool registration', () => {
     expect(sortedToolNames(response.tools)).toEqual(DEFAULT_TOOL_NAMES);
     expect(response.tools).toHaveLength(DEFAULT_TOOL_NAMES.length);
     expect(toolNames).toEqual(expect.arrayContaining(NON_CUSTODIAL_CONSTRUCTION_TOOL_NAMES));
+
+    for (const name of ['list_apps', 'list_skills', 'get_app_capabilities', 'draft_app_intent']) {
+      expect(response.tools.find(tool => tool.name === name)?.annotations).toMatchObject({
+        readOnlyHint: true,
+        destructiveHint: false,
+      });
+    }
 
     expect(toolNames).not.toContain('neofs_create_container');
     expect(toolNames).not.toContain('neofs_get_containers');
