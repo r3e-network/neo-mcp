@@ -54,6 +54,7 @@ const EXPECTED_PUBLIC_TOOLS = [
   'get_unclaimed_gas',
   'decode_neo_script',
   'query_nns',
+  'resolve_recipient',
   'query_neofs',
   'get_oracle_info',
   'get_nep17_transfers',
@@ -104,6 +105,7 @@ describe('public tool surface', () => {
 
   it('keeps the expanded high-level surface bounded', () => {
     expect(publicToolNames().length).toBeLessThanOrEqual(64);
+    expect(publicToolNames().length).toBeLessThanOrEqual(59);
   });
 
   it('never exposes key-custody tools', () => {
@@ -179,6 +181,7 @@ describe('chain discriminator', () => {
       'get_unclaimed_gas',
       'decode_neo_script',
       'query_nns',
+      'resolve_recipient',
       'query_neofs',
       'get_oracle_info',
       'get_nep17_transfers',
@@ -234,6 +237,23 @@ describe('chain discriminator', () => {
       containerId: '3'.repeat(44),
       objectId: '4'.repeat(44),
     })).not.toThrow();
+  });
+
+  it('routes resolve_recipient as an N3-only read with an explicit network', () => {
+    const schema = PUBLIC_TOOLS.resolve_recipient.inputSchema;
+    expect(Object.keys(schema).sort()).toEqual(['network', 'recipient']);
+    expect(schema.recipient).toBeDefined();
+    expect(schema.network).toBeDefined();
+    const route = resolveRoute('resolve_recipient', {
+      recipient: 'alice.neo',
+      network: 'testnet',
+      recordType: 'A',
+    });
+    expect(route.internalName).toBe('resolve_recipient');
+    expect(route.chain).toBe('n3');
+    expect(route.requiresServices).toBe(true);
+    expect(route.requiresWallet).toBe(false);
+    expect(route.args).toEqual({ recipient: 'alice.neo', network: 'testnet' });
   });
 
   it('routes account watch requests as an N3-only external action', () => {

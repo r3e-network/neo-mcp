@@ -114,7 +114,12 @@ function hash160StackAddress(item: unknown): string | null {
   return neonJs.wallet.getAddressFromScriptHash(Buffer.from(bytes).reverse().toString('hex'));
 }
 
-function decodeNnsProperties(result: ContractInvocationResult): Record<string, unknown> | null {
+/**
+ * Decode an NNS `properties` result map (`name`, `expiration`, `admin`, ...).
+ * Shared with the recipient resolver so the two NNS readers cannot drift apart
+ * on how a map entry is typed or how `expiration` is carried.
+ */
+export function decodeNnsProperties(result: ContractInvocationResult): Record<string, unknown> | null {
   if (String(result.state || '').toUpperCase() !== 'HALT') return null;
   const first = Array.isArray(result.stack) ? result.stack[0] : null;
   if (!first || typeof first !== 'object') return null;

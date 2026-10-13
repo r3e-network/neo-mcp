@@ -627,6 +627,31 @@ const SPECS: PublicToolSpec[] = [
     },
   },
   {
+    name: 'resolve_recipient',
+    description:
+      'Neo N3: resolve a transfer recipient deterministically. A typed Neo N3 address is '
+      + 'returned unchanged; a .neo name is resolved from its NNS TXT record together with the '
+      + 'owner and registration expiry. Fails closed: an unregistered name, a record that is not '
+      + 'a Neo N3 address, or any chain read that does not halt is refused and never defaulted. '
+      + 'Use this before build_transfer when the user named a recipient.',
+    inputSchema: {
+      recipient: z.string().min(1).max(255).describe(
+        'Recipient: a Neo N3 base58 address, or a .neo name to resolve',
+      ),
+      network: z.enum(['mainnet', 'testnet']).describe(
+        'N3 network the recipient lives on (required; there is no default for money)',
+      ),
+    },
+    chains: ['n3'],
+    routes: {
+      n3: {
+        internalName: 'resolve_recipient',
+        requiresServices: true,
+        mapArgs: (args) => n3Args(pick(args, ['recipient', 'network'])),
+      },
+    },
+  },
+  {
     name: 'query_neofs',
     description:
       'NeoFS: query network information, fixed-gateway container metadata, an N3 account '

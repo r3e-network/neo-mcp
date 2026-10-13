@@ -74,6 +74,7 @@ const DEFAULT_TOOL_NAMES = [
   'query_neofs',
   'query_nns',
   'request_account_watch',
+  'resolve_recipient',
   'simulate_call',
   'wait_for_transaction',
 ];

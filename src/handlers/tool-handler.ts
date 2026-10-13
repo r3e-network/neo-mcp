@@ -50,6 +50,10 @@ import {
 import { NEOX_ANALYSIS_TOOLS, dispatchNeoxAnalysisTool } from './neox-analysis-tools';
 import { ACCOUNT_WATCH_TOOLS, dispatchAccountWatchTool } from './account-watch-tools';
 import { APP_INTENT_TOOLS, dispatchAppIntentTool } from './app-intent-tools';
+import {
+  RECIPIENT_RESOLUTION_TOOLS,
+  dispatchRecipientResolutionTool,
+} from './recipient-resolution';
 
 // --- Individual Tool Handlers ---
 
@@ -1145,6 +1149,17 @@ export async function callTool(name: string, input: Record<string, unknown>, neo
   if (ECOSYSTEM_N3_TOOLS.has(name)) {
     try {
       return await dispatchEcosystemN3Tool(name, input, neoService);
+    } catch (error) {
+      return handleError(error);
+    }
+  }
+
+  // Recipient resolution is a read of NNS state that decides where value may
+  // later be sent. It shares the Neo N3 service path and refuses rather than
+  // defaulting; the error envelope is the refusal.
+  if (RECIPIENT_RESOLUTION_TOOLS.has(name)) {
+    try {
+      return await dispatchRecipientResolutionTool(name, input, neoService);
     } catch (error) {
       return handleError(error);
     }

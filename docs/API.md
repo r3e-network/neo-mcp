@@ -15,18 +15,34 @@ The registry rewrites `network` per route, so callers never spell out chain-qual
 
 ## MCP Surface
 
-The default server exposes 58 non-custodial tools:
+The default server exposes 59 non-custodial tools:
 
 - Server and data utilities: `get_network_mode`, `get_wallet`, `inspect_neo_value`, `convert_neo_data`, `get_neo_service_info`, `analyze_stablecoins`
 - Chain, both chains: `get_chain_info`, `get_block_height`, `get_block`, `get_transaction`, `get_transaction_status`, `get_balance`
 - Contracts, both chains: `call_contract`, `get_contract_info`, `simulate_call`
 - Construct, both chains: `build_transfer`, `build_contract_call`
 - Neo ecosystem reads: `decode_neo_script`, `query_nns`, `query_neofs`, `get_oracle_info`
+- Recipient resolution: `resolve_recipient`
 - Dedicated Neo N3 construct: `build_vote`, `build_nns_operation`
 - Explorer and intelligence: `explorer_get_address`, `analyze_address`, `analyze_account_graph`, `analyze_consensus_health`, `analyze_address_connection`, `analyze_transaction`, `investigate_transactions`, `analyze_contract`, `analyze_contract_upgrades`, `get_contract_source_verification`, `inspect_contract_code`, `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `explorer_list_address_transactions`, `explorer_list_address_transfers`, `explorer_list_token_holders`, `explorer_search`, `query_explorer`
 - Neo N3 only: `get_application_log`, `wait_for_transaction`, `get_unclaimed_gas`, `get_nep17_transfers`, `get_nep11_balances`, `get_nep11_transfers`, `get_contract_status`, `list_famous_contracts`, `estimate_transfer_fees`, `estimate_invoke_fees`, `explorer_list_address_assets`, `query_explorer_find`
 - Neo X only: `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `query_explorer_graphql`
 - Verified notification action: `request_account_watch`
+
+`resolve_recipient` turns a recipient into one address before a transfer is
+drafted. It takes `recipient` (a Neo N3 base58 address, or a `.neo` name) and a
+required `network`, and returns `address`, `source` (`typed` or `nns`), `owner`,
+`expiry`, `expiryMs`, `record`, `recordType`, `domain` and `contractHash`. A
+typed address is returned unchanged and is never re-encoded or re-read. A `.neo`
+name is resolved from its NNS TXT record on the network-correct NameService
+contract, with the owner and registration expiry as provenance. Resolution is
+deterministic — one record type, no default, no cache — and fails closed: an
+unregistered name, a missing owner, a record that is not a Neo N3 address, an
+unreadable expiry, or any chain read that does not halt is a thrown error with
+`details.reason`, never a partial result and never a fallback address. Chain
+record text is not echoed into error messages. `query_nns` remains the
+discovery tool (availability, price, one arbitrary record); it is not a
+recipient resolver and must not be used as one.
 
 `request_account_watch` is Neo N3 only and requires an explicit `network`, a
 checksum-valid address, and a valid email. It is disabled by default. When

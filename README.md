@@ -319,13 +319,14 @@ See [DOCKER.md](./docs/DOCKER.md) for image, volume, and helper-script details.
 
 ## MCP Tools and Resources
 
-The default MCP surface exposes 58 non-custodial tools. Every tool that both chains implement takes a required `chain` discriminator, `"n3"` or `"neox"`, with no silent default; single-chain tools reject the chain they do not serve. The `network` parameter is always `"mainnet"` or `"testnet"`; the registry rewrites it for Neo X internally, so callers never spell out a chain-qualified network name.
+The default MCP surface exposes 59 non-custodial tools. Every tool that both chains implement takes a required `chain` discriminator, `"n3"` or `"neox"`, with no silent default; single-chain tools reject the chain they do not serve. The `network` parameter is always `"mainnet"` or `"testnet"`; the registry rewrites it for Neo X internally, so callers never spell out a chain-qualified network name.
 
 - Server and data utilities: `get_network_mode`, `get_wallet`, `inspect_neo_value`, `convert_neo_data`, `get_neo_service_info`, `analyze_stablecoins`
 - Chain, both chains: `get_chain_info`, `get_block_height`, `get_block`, `get_transaction`, `get_transaction_status`, `get_balance`
 - Contracts, both chains: `call_contract`, `get_contract_info`, `simulate_call`
 - Construct, both chains: `build_transfer`, `build_contract_call`
 - Neo ecosystem reads: `decode_neo_script`, `query_nns`, `query_neofs`, `get_oracle_info`
+- Recipient resolution: `resolve_recipient`
 - Dedicated Neo N3 construct: `build_vote`, `build_nns_operation`
 - Explorer and intelligence: `explorer_get_address`, `analyze_address`, `analyze_account_graph`, `analyze_consensus_health`, `analyze_address_connection`, `analyze_transaction`, `investigate_transactions`, `analyze_contract`, `analyze_contract_upgrades`, `get_contract_source_verification`, `inspect_contract_code`, `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `explorer_list_address_transactions`, `explorer_list_address_transfers`, `explorer_list_token_holders`, `explorer_search`, `query_explorer`
 - Verified notification action: `request_account_watch` sends a cooldown-limited verification message for one explicit Neo N3 network, address, and email. It is non-destructive and idempotent; the watch remains inactive until the recipient confirms in the Explorer.
@@ -333,6 +334,8 @@ The default MCP surface exposes 58 non-custodial tools. Every tool that both cha
 - Neo X only: `analyze_neox_transaction`, `analyze_neox_block`, `analyze_neox_address`, `analyze_neox_contract`, `analyze_neox_token`, `query_explorer_graphql`
 
 `call_contract` is strictly read-only: `invokefunction` on Neo N3, `eth_call` on Neo X. The `build_*` tools run the exact read-only simulation and return UNSIGNED transaction proposals for a wallet to review and sign; no default-surface tool holds a key, signs, or broadcasts. `build_vote` pins the native NEO contract, while `build_nns_operation` pins the network-correct NameService contract and operation arguments.
+
+`resolve_recipient` resolves a transfer recipient before `build_transfer` is called: a typed Neo N3 address comes back unchanged and is never re-read, and a `.neo` name is resolved from its NNS TXT record with the owner and registration expiry as provenance. It requires an explicit `network` and is deterministic — one record type, no default, no cache. It fails closed: an unregistered name, a missing owner, a record that is not a Neo N3 address, an unreadable expiry, or any chain read that does not halt is a thrown error, never a fallback address. `query_nns` stays the discovery tool and is not a recipient resolver.
 
 `query_neofs` requires an explicit `network` field. The selected N3 network is preserved as
 address context in the result, while the fixed NeoFS gateway remains global; this prevents
