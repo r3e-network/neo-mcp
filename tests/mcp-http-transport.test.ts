@@ -140,7 +140,11 @@ describe('MCP 2026-07-28 stateless HTTP transport', () => {
       expect(transport.sessionId).toBeUndefined();
 
       const listed = await client.listTools();
-      expect(listed.tools).toHaveLength(58);
+      // The advertised surface is pinned by hand and re-blessed in the same change that
+      // adds an entry: 58 before the app intent and skills names, 62 after them, 63 with
+      // summarize_account_activity. tests/tool-registry.test.ts pins the same size.
+      expect(listed.tools).toHaveLength(63);
+      expect(listed.tools.map((tool) => tool.name)).toContain('summarize_account_activity');
       expect(listed.tools.map((tool) => tool.name)).toContain('analyze_address');
       expect(listed.tools.map((tool) => tool.name)).toContain('analyze_account_graph');
       expect(listed.tools.map((tool) => tool.name)).toContain('request_account_watch');

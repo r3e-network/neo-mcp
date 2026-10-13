@@ -76,6 +76,7 @@ const DEFAULT_TOOL_NAMES = [
   'request_account_watch',
   'resolve_recipient',
   'simulate_call',
+  'summarize_account_activity',
   'wait_for_transaction',
 ];
 

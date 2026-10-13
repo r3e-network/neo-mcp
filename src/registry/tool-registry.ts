@@ -753,6 +753,39 @@ const SPECS: PublicToolSpec[] = [
     },
   },
   {
+    name: 'summarize_account_activity',
+    description:
+      'Neo N3: summarize what an address did in a time window. The server computes inflow and '
+      + 'outflow per asset, transfer counts, ranked counterparties, claimable GAS, the block the '
+      + 'data runs through and truncation flags. Amounts are base units summed exactly here; a '
+      + 'display value is only given where the asset decimals are known to this server, so no '
+      + 'total is left for the model to work out.',
+    inputSchema: {
+      address: z.string().describe('Neo N3 address'),
+      fromTimestampMs: z.number().int().nonnegative().optional().describe(
+        'Optional start timestamp in Unix epoch milliseconds (inclusive)',
+      ),
+      toTimestampMs: z.number().int().nonnegative().optional().describe(
+        'Optional end timestamp in Unix epoch milliseconds (inclusive)',
+      ),
+      topCounterparties: z.number().int().min(1).max(25).optional().describe(
+        'How many counterparties to rank (1-25, default 5)',
+      ),
+      ...networkField,
+    },
+    chains: ['n3'],
+    readOnly: true,
+    routes: {
+      n3: {
+        internalName: 'summarize_account_activity',
+        requiresServices: true,
+        mapArgs: (args) => n3Args(
+          pick(args, ['address', 'fromTimestampMs', 'toTimestampMs', 'topCounterparties', 'network']),
+        ),
+      },
+    },
+  },
+  {
     name: 'get_contract_status',
     description:
       'Neo N3: check whether a contract is deployed and inspect its current on-chain status '

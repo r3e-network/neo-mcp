@@ -55,6 +55,7 @@ import {
   RECIPIENT_RESOLUTION_TOOLS,
   dispatchRecipientResolutionTool,
 } from './recipient-resolution';
+import { ACCOUNT_ACTIVITY_TOOLS, summarizeAccountActivity } from './account-activity-tools';
 
 // --- Individual Tool Handlers ---
 
@@ -1143,6 +1144,16 @@ export async function callTool(name: string, input: Record<string, unknown>, neo
     }
   } catch (error) {
     return handleError(error);
+  }
+
+  // Account activity is aggregated from the NeoService RPC reads above. It is read-only and
+  // never reaches the N3 indexer host.
+  if (ACCOUNT_ACTIVITY_TOOLS.has(name)) {
+    try {
+      return createSuccessResponse(await summarizeAccountActivity(input, neoService));
+    } catch (error) {
+      return handleError(error);
+    }
   }
 
   // Neo N3 simulate/construct tools reuse the read-only NeoService RPC path

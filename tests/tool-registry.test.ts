@@ -60,6 +60,7 @@ const EXPECTED_PUBLIC_TOOLS = [
   'get_nep17_transfers',
   'get_nep11_balances',
   'get_nep11_transfers',
+  'summarize_account_activity',
   'get_contract_status',
   'list_famous_contracts',
   'estimate_transfer_fees',
@@ -106,6 +107,11 @@ describe('public tool surface', () => {
   it('keeps the expanded high-level surface bounded', () => {
     expect(publicToolNames().length).toBeLessThanOrEqual(64);
     expect(publicToolNames().length).toBeLessThanOrEqual(59);
+    // The bound is the exact size of the reviewed public surface, not a headroom
+    // allowance: every addition is a deliberate edit here and must re-bless this
+    // number in the same change. It has moved 58 -> 59 for summarize_account_activity,
+    // and lands at 63 once the four app intent and skills entries are counted too.
+    expect(publicToolNames().length).toBeLessThanOrEqual(63);
   });
 
   it('never exposes key-custody tools', () => {
@@ -187,6 +193,7 @@ describe('chain discriminator', () => {
       'get_nep17_transfers',
       'get_nep11_balances',
       'get_nep11_transfers',
+      'summarize_account_activity',
       'get_contract_status',
       'list_famous_contracts',
       'estimate_transfer_fees',
@@ -321,6 +328,7 @@ describe('node read routing', () => {
     ['get_nep17_transfers', { address: 'N1' }, 'get_nep17_transfers'],
     ['get_nep11_balances', { address: 'N1' }, 'get_nep11_balances'],
     ['get_nep11_transfers', { address: 'N1' }, 'get_nep11_transfers'],
+    ['summarize_account_activity', { address: 'N1' }, 'summarize_account_activity'],
     ['get_contract_status', { contractName: 'neo' }, 'get_contract_status'],
     ['list_famous_contracts', {}, 'list_famous_contracts'],
     ['estimate_transfer_fees', { from: 'N1', to: 'N2', asset: 'NEO', amount: '1' }, 'estimate_transfer_fees'],
