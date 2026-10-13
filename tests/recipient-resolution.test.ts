@@ -534,6 +534,130 @@ describe('incomplete chain reads stop the flow', () => {
   });
 });
 
+// --- the VM state of a read is part of its meaning ---------------------------
+//
+// The cases above feed a bad *stack*. This block feeds a bad *VM state* on a
+// stack that decodes cleanly, which is the half of the fail-closed contract the
+// stack decoders cannot cover: `readAvailability`, `readOwner` and
+// `readRecordAddress` inspect the stack item only. If the HALT/exception gate in
+// `invokeNns` is removed, those three reads treat a FAULT or exception-bearing
+// answer as data and a name resolves to an address the chain never confirmed.
+// (`properties` is deliberately outside this loop: `decodeNnsProperties`
+// re-checks HALT on its own, so a non-HALT map is refused twice over and would
+// not single out the gate.)
+//
+// Each case runs a control first: the identical stack under a clean HALT must
+// resolve, so the refusal below cannot be coming from a decoder that would have
+// rejected that stack anyway. Only the VM state differs between the two.
+
+describe('a chain read that does not halt is refused', () => {
+  /** The reads whose decoders look at the stack item and nothing else. */
+  const STACK_ONLY_READS = ['isAvailable', 'ownerOf', 'resolve'] as const;
+  type StackOnlyRead = (typeof STACK_ONLY_READS)[number];
+
+  /**
+   * The happy-path stack item for each of those reads — real, decodable data.
+   */
+  const decodableStackItem: Record<StackOnlyRead, unknown> = {
+    isAvailable: { type: 'Boolean', value: false },
+    ownerOf: ownerItem(OWNER),
+    resolve: byteStringItem(RECIPIENT),
+  };
+
+  /**
+   * VM answers that are not a clean HALT. Both shapes matter and neither may be
+   * covered by the other's guard:
+   *
+   *   - `FAULT` with an exception is the ordinary abort, and the exception
+   *     disjunct alone would catch it;
+   *   - `NONE` with no exception is a script that never ran (Neo's VMState has
+   *     HALT, FAULT and NONE), and only the state disjunct stands between it and
+   *     a wrong recipient.
+   *
+   * A fixture that always carried an exception would leave the state check
+   * unproven, which is half the gate.
+   */
+  const NON_HALTING: ReadonlyArray<{ state: string; exception: unknown }> = [
+    { state: 'FAULT', exception: 'boom' },
+    { state: 'NONE', exception: null },
+  ];
+
+  /**
+   * A NeoService whose chain reads are alice.neo's happy reads, except that one
+   * operation answers a whole raw VM result instead of a bare stack item. The
+   * stack fed to that operation is always `decodableStackItem[operation]`, so the
+   * only thing under test is what the resolver does with the VM state.
+   */
+  function fakeServiceWithRawResult(
+    operation: StackOnlyRead,
+    raw: { state: string; exception: unknown; stack: unknown[] },
+    network = 'testnet',
+  ) {
+    const reads = registeredNameReads();
+    const testInvoke = jest.fn(
+      async (_scriptHash: string, op: string, _params?: unknown, _signers?: unknown) => {
+        if (op === operation) return raw;
+        const value = (reads as Record<string, unknown>)[op];
+        if (value === undefined) throw new Error(`unexpected operation ${op}`);
+        return { state: 'HALT', exception: null, stack: [value] };
+      },
+    );
+    const service = {
+      getNetwork: () => network,
+      testInvoke,
+    } as unknown as NeoService;
+    return { service, testInvoke };
+  }
+
+  /** The same stack item, answered under a clean HALT — must resolve. */
+  async function controlResolves(operation: StackOnlyRead) {
+    const { service, testInvoke } = fakeServiceWithRawResult(operation, {
+      state: 'HALT',
+      exception: null,
+      stack: [decodableStackItem[operation]],
+    });
+    const result = await resolveRecipient({ recipient: 'alice.neo', network: 'testnet' }, service);
+    expect(result.address).toBe(RECIPIENT);
+    expect(testInvoke).toHaveBeenCalled();
+    return result;
+  }
+
+  it('refuses a non-HALT read whose stack still decodes, on every stack-only read', async () => {
+    for (const operation of STACK_ONLY_READS) {
+      await controlResolves(operation);
+
+      for (const vm of NON_HALTING) {
+        const { service, testInvoke } = fakeServiceWithRawResult(operation, {
+          ...vm,
+          stack: [decodableStackItem[operation]],
+        });
+        const error = await refusalOf(
+          resolveRecipient({ recipient: 'alice.neo', network: 'testnet' }, service),
+        );
+        expectReason(error, 'chain_read_failed');
+        expect(testInvoke).toHaveBeenCalled();
+      }
+    }
+  });
+
+  it('refuses a HALT read that carries an exception, even when the stack decodes', async () => {
+    for (const operation of STACK_ONLY_READS) {
+      await controlResolves(operation);
+
+      const { service, testInvoke } = fakeServiceWithRawResult(operation, {
+        state: 'HALT',
+        exception: 'boom',
+        stack: [decodableStackItem[operation]],
+      });
+      const error = await refusalOf(
+        resolveRecipient({ recipient: 'alice.neo', network: 'testnet' }, service),
+      );
+      expectReason(error, 'chain_read_failed');
+      expect(testInvoke).toHaveBeenCalled();
+    }
+  });
+});
+
 // --- input and network ------------------------------------------------------
 
 describe('input and network', () => {
