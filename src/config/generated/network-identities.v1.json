@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "networks": {
+    "mainnet": {
+      "network": "mainnet",
+      "magic": 860833102,
+      "genesisHash": "0x1f4d1defa46faa5e7b9b8d3f79a06bec777d7c26c4aa5f6f5899a291daa87c15",
+      "provenance": "neo-go/6d7bd0c7d612c1e9eeaf08efbb8788efef5a449b/config/protocol.mainnet.yml#CreateGenesisBlock"
+    },
+    "testnet": {
+      "network": "testnet",
+      "magic": 894710606,
+      "genesisHash": "0x9d3276785e7306daf59a3f3b9e31912c095598bbfb8a4476b821b0e59be4c57a",
+      "provenance": "neo-go/6d7bd0c7d612c1e9eeaf08efbb8788efef5a449b/config/protocol.testnet.yml#CreateGenesisBlock"
+    }
+  }
+}

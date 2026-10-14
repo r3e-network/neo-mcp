@@ -9,6 +9,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# Release archive output (rebuilt by scripts/build-release-archive.mjs)
+release-artifacts/
+
 # Environment variables
 .env
 .env.local

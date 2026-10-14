@@ -1,6 +1,7 @@
 import * as neonJs from '@cityofzion/neon-js';
 import { config } from '../config';
 import { KnownAccountMetadata, normalizeScriptHash, resolveKnownAccount, tryGetAddressFromScriptHash, tryGetScriptHashFromAddress } from '../metadata/known-accounts';
+import { neoNetworkMagic } from '../registry/network-identity-registry';
 import { logger } from '../utils/logger';
 import { createRpcClient, isDefinitiveRpcRejection, isUnsupportedRpcMethodError, toRpcUrlList } from '../utils/rpc-client';
 import { OperationAbortedError, RpcDeadlineError, SubmissionOutcomeUnknownError, withRpcDeadline } from '../utils/rpc-deadline';
@@ -20,9 +21,14 @@ export enum NeoNetwork {
   TESTNET = 'testnet'
 }
 
+/**
+ * The two Neo N3 magics, read from the reviewed identity registry rather than
+ * restated here. `src/registry/network-identity-registry.ts` is the only local
+ * authority; this export keeps the historical shape for existing consumers.
+ */
 export const NEO_NETWORK_MAGIC: Readonly<Record<NeoNetwork, number>> = Object.freeze({
-  [NeoNetwork.MAINNET]: 860833102,
-  [NeoNetwork.TESTNET]: 894710606,
+  [NeoNetwork.MAINNET]: neoNetworkMagic(NeoNetwork.MAINNET),
+  [NeoNetwork.TESTNET]: neoNetworkMagic(NeoNetwork.TESTNET),
 });
 
 export const MAX_TRANSACTION_WAIT_TIMEOUT_MS = 120_000;

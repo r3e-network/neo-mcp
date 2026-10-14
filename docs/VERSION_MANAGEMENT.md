@@ -2,7 +2,7 @@
 
 Neo MCP follows [Semantic Versioning](https://semver.org/) using `MAJOR.MINOR.PATCH`.
 
-Current version: `4.0.2`.
+Current version: `4.2.0`.
 
 ## Version Source
 
@@ -77,6 +77,33 @@ On a non-dry run it then runs `npm version <type> --no-git-tag-version`. It does
    ```
 
 Publishing the GitHub release triggers the npm and Docker publishing jobs. A pushed tag by itself does not run those publish jobs.
+
+## Reproducible Release Archive and Release Record
+
+`scripts/build-release-archive.mjs` builds a deterministic tar.gz of the deployable
+surface (`dist/**`, `package.json`, `README.md`, `LICENSE`) and prints one JSON line
+naming the archive, its SHA-256, and its byte length. Paths are sorted, tar headers are
+normalized (zero mtimes, uid/gid 0), and the gzip container carries no timestamp, so two
+builds of the same bytes produce the same hash.
+
+```bash
+npm run build
+node scripts/build-release-archive.mjs
+node scripts/build-release-archive.mjs --check-record docs/RELEASE-RECORD.md
+```
+
+`docs/RELEASE-RECORD.md` is the checked-in record naming that hash, the archive file, the
+package version, and the source commit the archive was built from. The record is not part
+of the archive, so it can be committed in the same tree as the code that builds it. Update
+it in the same change that bumps the version or alters the build output, and re-run
+`--check-record` before deploying.
+
+`tests/version-consistency.test.ts` fails when any current-version surface (`package.json`,
+`package-lock.json`, `src/version.ts`, `docs/CHANGELOG.md`, `README.md`, this file, and the
+release record) disagrees with `package.json`. `tests/release-archive.test.ts` fails when
+the archive is not reproducible or the record names a different hash.
+
+`release-artifacts/` is a build output directory and is gitignored.
 
 ## Version Types
 
