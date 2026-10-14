@@ -138,6 +138,28 @@ function buildOnce(options: { fakeNow?: number } = {}): BuildResult {
   return parseBuildLine(runBuilder([], options));
 }
 
+/**
+ * Run `--check-record` and require it to fail. The assertion reads the
+ * builder's *stderr*, not the thrown error's message, because `execFileSync`
+ * folds the command line (which contains the scratch path) into the message
+ * and that can hide a vague error behind the fixture name.
+ */
+function expectCheckRecordFailure(badPath: string, fieldPattern: RegExp, pathInMessage: string): void {
+  let stderr = '';
+  let threw = false;
+  try {
+    runBuilder(['--check-record', badPath]);
+  } catch (error) {
+    threw = true;
+    const err = error as { stderr?: Buffer | string };
+    const raw = err.stderr;
+    stderr = raw === undefined ? '' : typeof raw === 'string' ? raw : raw.toString('utf8');
+  }
+  expect(threw).toBe(true);
+  expect(stderr).toMatch(fieldPattern);
+  expect(stderr).toContain(pathInMessage);
+}
+
 describe('reproducible release archive', () => {
   // dist/ is shared with the MCP suites and package-surface; build only when it
   // is missing and never via `npm run build`, whose clean step deletes it first.
@@ -161,24 +183,113 @@ describe('reproducible release archive', () => {
   });
 
   test('two builds of the same bytes produce the same hash', () => {
-    // The two builds run under two *different* injected wall clocks. A gzip
-    // MTIME (or any other timestamp) taken from Date.now() therefore cannot
-    // hide behind the two builds landing in the same Unix second.
+    // The two builds run under two *different* injected wall clocks. Any
+    // timestamp taken from the wall clock (Date.now(), new Date(), a file
+    // mtime) therefore cannot hide behind the two builds landing in the same
+    // Unix second. `the injected clock freezes every wall-clock surface`
+    // proves the preload actually freezes those surfaces; `every tar member
+    // carries a zero mtime` pins the archive bytes the timestamps reach.
     const first = buildOnce({ fakeNow: 1_000_000_000_000 });
     const second = buildOnce({ fakeNow: 2_000_000_000_000 });
     expect(second.sha256).toBe(first.sha256);
     expect(second.bytes).toBe(first.bytes);
   });
 
-  test('the gzip container carries MTIME=0', () => {
+  test('the injected clock freezes every wall-clock surface the build can read', () => {
+    // fake-now.cjs must cover the whole surface a build can read a timestamp
+    // from, not just Date.now: `new Date()`, the `Date()` string form, and the
+    // mtime fields of fs.stat* results all feed tar member headers if a future
+    // edit (or mutant) consults them. Explicitly constructed Dates are not
+    // frozen — only the wall clock is.
+    const script = `
+      const fs = require('fs');
+      const os = require('os');
+      const path = require('path');
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'clock-probe-'));
+      const probe = path.join(tmp, 'probe.bin');
+      fs.writeFileSync(probe, 'x');
+      const st = fs.statSync(probe);
+      const out = {
+        dateNow: Date.now(),
+        newDateMs: new Date().getTime(),
+        newDateValueOf: new Date().valueOf(),
+        dateFunctionForm: Date(),
+        statMtimeMs: st.mtimeMs,
+        statMtimeGetTime: st.mtime.getTime(),
+        explicitConstruction: new Date(123).getTime(),
+      };
+      fs.rmSync(tmp, { recursive: true, force: true });
+      process.stdout.write(JSON.stringify(out));
+    `;
+    const stdout = execFileSync(process.execPath, ['--require', fakeNowPreload, '-e', script], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      env: { ...process.env, FAKE_NOW: '1000000000000' },
+    });
+    const parsed = JSON.parse(stdout) as {
+      dateNow: number;
+      newDateMs: number;
+      newDateValueOf: number;
+      dateFunctionForm: string;
+      statMtimeMs: number;
+      statMtimeGetTime: number;
+      explicitConstruction: number;
+    };
+    expect(parsed.dateNow).toBe(1_000_000_000_000);
+    expect(parsed.newDateMs).toBe(1_000_000_000_000);
+    expect(parsed.newDateValueOf).toBe(1_000_000_000_000);
+    expect(parsed.statMtimeMs).toBe(1_000_000_000_000);
+    expect(parsed.statMtimeGetTime).toBe(1_000_000_000_000);
+    expect(parsed.dateFunctionForm).toBe(new Date(1_000_000_000_000).toString());
+    expect(parsed.explicitConstruction).toBe(123);
+  });
+
+  test('the gzip container header is fully pinned', () => {
+    // Byte-level pin of the 10-byte gzip header: magic, CM, FLG, MTIME (0),
+    // XFL, OS. A timestamp or OS-byte mutant cannot survive this.
     const result = buildOnce();
     const gz = fs.readFileSync(path.join(repoRoot, result.archive));
+    expect(gz.length).toBeGreaterThan(10);
     expect(gz[0]).toBe(0x1f);
     expect(gz[1]).toBe(0x8b);
     expect(gz[2]).toBe(0x08); // deflate
     expect(gz[3]).toBe(0x00); // no extra fields
     expect(gz.readUInt32LE(4)).toBe(0);
     expect([...gz.subarray(4, 8)]).toEqual([0, 0, 0, 0]);
+    expect(gz[8]).toBe(0x00); // XFL
+    expect(gz[9]).toBe(0xff); // OS: unknown
+  });
+
+  test('every tar member carries a zero mtime and zero uid/gid', () => {
+    // Structural pin of the tar half, same role as the gzip header pin:
+    // the timestamp fields the archive actually contains are zero, whatever
+    // wall-clock source a writer might consult (Date.now, new Date, fs mtime).
+    const result = buildOnce();
+    const archivePath = path.join(repoRoot, result.archive);
+    const script = `
+      import * as mod from ${JSON.stringify(builderPath)};
+      import fs from 'node:fs';
+      import zlib from 'node:zlib';
+      const tar = zlib.gunzipSync(fs.readFileSync(${JSON.stringify(archivePath)}));
+      process.stdout.write(JSON.stringify(mod.readTarMembers(tar)));
+    `;
+    const stdout = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    const members = JSON.parse(stdout) as Array<{
+      name: string;
+      mtime: number;
+      uid: number;
+      gid: number;
+    }>;
+    expect(members.length).toBeGreaterThan(0);
+    for (const member of members) {
+      expect(member.name).not.toBe('');
+      expect(member.mtime).toBe(0);
+      expect(member.uid).toBe(0);
+      expect(member.gid).toBe(0);
+    }
   });
 
   test('archive holds exactly the deployable surface', () => {
@@ -225,7 +336,9 @@ describe('reproducible release archive', () => {
   });
 
   test('builder fails closed when dist/ is absent', () => {
-    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-no-dist-'));
+    // Fixture name deliberately avoids the words the pin matches, so the
+    // assertion cannot pass on the scratch path alone.
+    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-absent-build-'));
     try {
       fs.writeFileSync(
         path.join(fixture, 'package.json'),
@@ -239,7 +352,7 @@ describe('reproducible release archive', () => {
           encoding: 'utf8',
           stdio: 'pipe',
         }),
-      ).toThrow(/dist/);
+      ).toThrow(/missing dist\//);
     } finally {
       fs.rmSync(fixture, { recursive: true, force: true });
     }
@@ -319,7 +432,7 @@ describe('release record', () => {
       const badPath = path.join(scratch, 'bad-record.md');
       fs.writeFileSync(badPath, corrupted);
 
-      expect(() => runBuilder(['--check-record', badPath])).toThrow(/record mismatch: expected/i);
+      expectCheckRecordFailure(badPath, /record mismatch: archiveSha256 expected/i, badPath);
     } finally {
       fs.rmSync(scratch, { recursive: true, force: true });
     }
@@ -338,7 +451,77 @@ describe('release record', () => {
       const badPath = path.join(scratch, 'bad-version-record.md');
       fs.writeFileSync(badPath, corrupted);
 
-      expect(() => runBuilder(['--check-record', badPath])).toThrow(/record mismatch: version/i);
+      expectCheckRecordFailure(badPath, /record mismatch: version/i, badPath);
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  test('--check-record rejects a record naming the wrong sourceCommit', () => {
+    buildOnce();
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-bad-scm-'));
+    try {
+      const record = fs.readFileSync(recordPath, 'utf8');
+      const corrupted = record.replace(/"sourceCommit":\s*"[0-9a-f]{40}"/, '"sourceCommit": "' + 'a'.repeat(40) + '"');
+      expect(corrupted).not.toBe(record);
+      const badPath = path.join(scratch, 'bad-scm-record.md');
+      fs.writeFileSync(badPath, corrupted);
+
+      expectCheckRecordFailure(badPath, /record mismatch: sourceCommit/i, badPath);
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  test('--check-record rejects a sourceCommit whose build inputs differ', () => {
+    // Hex shape is not enough: the named commit must exist AND carry the
+    // build-input tree the archive was built from. 08ab6e9 is a real commit on
+    // this branch whose src/ predates the identity-edges fix.
+    buildOnce();
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-stale-scm-'));
+    try {
+      const record = fs.readFileSync(recordPath, 'utf8');
+      const corrupted = record.replace(
+        /"sourceCommit":\s*"[0-9a-f]{40}"/,
+        '"sourceCommit": "08ab6e97524a9b07ed48c98682bde2a3f177d08b"',
+      );
+      expect(corrupted).not.toBe(record);
+      const badPath = path.join(scratch, 'stale-scm-record.md');
+      fs.writeFileSync(badPath, corrupted);
+
+      expectCheckRecordFailure(badPath, /record mismatch: sourceCommit/i, badPath);
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  test('--check-record rejects a record naming the wrong archiveBytes', () => {
+    buildOnce();
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-bad-size-'));
+    try {
+      const record = fs.readFileSync(recordPath, 'utf8');
+      const corrupted = record.replace(/"archiveBytes":\s*[0-9]+/, '"archiveBytes": 1');
+      expect(corrupted).not.toBe(record);
+      const badPath = path.join(scratch, 'bad-size-record.md');
+      fs.writeFileSync(badPath, corrupted);
+
+      expectCheckRecordFailure(badPath, /record mismatch: archiveBytes/i, badPath);
+    } finally {
+      fs.rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  test('--check-record rejects a record naming the wrong archiveFileName', () => {
+    buildOnce();
+    const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-bad-name-'));
+    try {
+      const record = fs.readFileSync(recordPath, 'utf8');
+      const corrupted = record.replace(/"archiveFileName":\s*"[^"]+"/, '"archiveFileName": "other.tar.gz"');
+      expect(corrupted).not.toBe(record);
+      const badPath = path.join(scratch, 'bad-name-record.md');
+      fs.writeFileSync(badPath, corrupted);
+
+      expectCheckRecordFailure(badPath, /record mismatch: archiveFileName/i, badPath);
     } finally {
       fs.rmSync(scratch, { recursive: true, force: true });
     }
@@ -353,7 +536,8 @@ describe('release record', () => {
     expect(corrupt.equals(good)).toBe(false);
     try {
       fs.writeFileSync(archivePath, corrupt);
-      expect(() => runBuilder(['--check-record', recordPath])).toThrow();
+      // message must name the artifact path, not just say "mismatch" (N-R4)
+      expectCheckRecordFailure(recordPath, /shipped artifact mismatch/i, archivePath);
       // the whole point of F4: verification must not overwrite the evidence
       expect(fs.readFileSync(archivePath).equals(corrupt)).toBe(true);
     } finally {
@@ -367,7 +551,7 @@ describe('release record', () => {
     const good = fs.readFileSync(archivePath);
     try {
       fs.rmSync(archivePath);
-      expect(() => runBuilder(['--check-record', recordPath])).toThrow();
+      expectCheckRecordFailure(recordPath, /shipped artifact is missing/i, archivePath);
       expect(fs.existsSync(archivePath)).toBe(false);
     } finally {
       fs.writeFileSync(archivePath, good);

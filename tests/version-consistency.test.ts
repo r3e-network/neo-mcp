@@ -189,7 +189,9 @@ describe('version string agreement', () => {
   });
 
   test('readPackageVersion rejects a debris version at the builder boundary', () => {
-    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-bad-version-grammar-'));
+    // Fixture name deliberately avoids the words the pin matches, so the
+    // assertion cannot pass on the scratch path alone (the F6 self-finding).
+    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-debris-grammar-'));
     try {
       fs.writeFileSync(
         path.join(fixture, 'package.json'),
@@ -206,7 +208,7 @@ describe('version string agreement', () => {
           [path.join(repoRoot, 'scripts/build-release-archive.mjs'), '--root', fixture],
           { cwd: repoRoot, encoding: 'utf8', stdio: 'pipe' },
         ),
-      ).toThrow(/version/i);
+      ).toThrow(/package\.json version must be a plain semver/i);
     } finally {
       fs.rmSync(fixture, { recursive: true, force: true });
     }

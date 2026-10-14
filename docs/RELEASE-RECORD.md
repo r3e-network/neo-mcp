@@ -10,8 +10,12 @@ node scripts/build-release-archive.mjs --check-record docs/RELEASE-RECORD.md
 ```
 
 `--check-record` never writes or repairs the shipped artifact. It rebuilds in memory,
-compares the record to that rebuild, and then hashes `release-artifacts/*.tar.gz` as
-found on disk: a missing or corrupt artifact fails the check and names its path.
+compares every record field to that rebuild (`version`, `archiveFileName`, `archiveBytes`,
+`archiveSha256`), verifies `sourceCommit` names a real commit whose `src/`, `package.json`,
+`README.md` and `LICENSE` match this working tree, and then hashes
+`release-artifacts/*.tar.gz` as found on disk: a missing or corrupt artifact fails the
+check and names its path. A wrong value in any checked field fails with a message naming
+the field and the record path.
 
 The archive holds exactly `dist/**`, `package.json`, `README.md`, and `LICENSE`. It is
 built deterministically (sorted paths, zero mtimes, uid/gid 0, gzip without a timestamp),
@@ -59,9 +63,11 @@ lands in the following commit.
 
 `tests/release-archive.test.ts` rebuilds the archive and fails if it does not hash to the
 value above, if two builds disagree under different injected wall clocks, if the gzip
-container carries a timestamp, or if the archive holds anything outside `contents`.
-`--check-record` additionally hashes the shipped `release-artifacts/*.tar.gz` and fails
-rather than repairing it. `tests/version-consistency.test.ts` fails if `version`
+header is not fully pinned (MTIME, XFL and OS all fixed), if any tar member carries a
+non-zero mtime/uid/gid, or if the archive holds anything outside `contents`.
+`--check-record` additionally hashes the shipped `release-artifacts/*.tar.gz`, compares
+every record field, binds `sourceCommit` to the build-input tree, and fails rather than
+repairing the artifact. `tests/version-consistency.test.ts` fails if `version`
 disagrees with `package.json`.
 
 ## Scope

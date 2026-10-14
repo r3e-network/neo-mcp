@@ -15,14 +15,20 @@
  *   node scripts/build-release-archive.mjs --list --archive FILE
  *   node scripts/build-release-archive.mjs --check-record FILE
  *
- * `--check-record` verifies the record against a fresh in-memory build *and*
- * against the shipped artifact on disk. It never writes or repairs the
- * artifact: a missing or corrupt artifact is a failure naming its path.
+ * `--check-record` verifies every field the record claims: `version`,
+ * `archiveFileName`, `archiveBytes`, `archiveSha256` against a fresh in-memory
+ * build *and* the shipped artifact on disk, and `sourceCommit` against the
+ * real commit whose build-input tree (`src/`, `package.json`, `README.md`,
+ * `LICENSE`) matches this working tree. It never writes or repairs the
+ * artifact: a missing or corrupt artifact is a failure naming its path. A
+ * wrong value in any checked field fails with a message naming the field and
+ * the record path.
  *
  * Exit codes: 0 success, 1 record/hash mismatch, 2 usage or missing input.
  */
 
 import crypto from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -293,8 +299,13 @@ function gunzipToBuffer(buffer) {
   return zlib.gunzipSync(buffer);
 }
 
-function readTarMembers(tarBuffer) {
-  const names = [];
+/**
+ * Parse a tar buffer into member records. Exported so the tests can pin the
+ * header fields the archive actually contains (mtime/uid/gid are the
+ * per-machine surfaces `buildTarHeader` normalizes).
+ */
+export function readTarMembers(tarBuffer) {
+  const members = [];
   let offset = 0;
   while (offset + TAR_BLOCK <= tarBuffer.length) {
     const header = tarBuffer.subarray(offset, offset + TAR_BLOCK);
@@ -304,15 +315,83 @@ function readTarMembers(tarBuffer) {
     const rawName = header.subarray(0, 100).toString('utf8').replace(/\0.*$/, '');
     const rawPrefix = header.subarray(345, 500).toString('utf8').replace(/\0.*$/, '');
     const name = rawPrefix ? `${rawPrefix}/${rawName}` : rawName;
-    const sizeText = header.subarray(124, 136).toString('ascii').replace(/\0.*$/, '').trim();
-    const size = parseInt(sizeText, 8);
-    if (!Number.isInteger(size) || size < 0) {
-      usageError(`unreadable tar size field for ${name}`);
-    }
-    names.push(name);
+    const readOctal = (start, end, fieldName) => {
+      const text = header.subarray(start, end).toString('ascii').replace(/\0.*$/, '').trim();
+      const parsed = parseInt(text, 8);
+      if (!Number.isInteger(parsed) || parsed < 0) {
+        usageError(`unreadable tar ${fieldName} field for ${name}`);
+      }
+      return parsed;
+    };
+    const size = readOctal(124, 136, 'size');
+    const mtime = readOctal(136, 148, 'mtime');
+    const uid = readOctal(108, 116, 'uid');
+    const gid = readOctal(116, 124, 'gid');
+    members.push({ name, size, mtime, uid, gid });
     offset += TAR_BLOCK + Math.ceil(size / TAR_BLOCK) * TAR_BLOCK;
   }
-  return names;
+  return members;
+}
+
+/**
+ * `sourceCommit` is the provenance pin: the commit whose build inputs produced
+ * the archive. Verification is against the real commit, not a hex shape:
+ * the commit must exist, and its `src/`, `package.json`, `README.md`,
+ * `LICENSE` must match this working tree byte for byte. That is the only
+ * self-reference-free meaning a commit SHA can have here — a commit cannot
+ * contain its own SHA, so "the commit the record is in" is unnameable, while
+ * "the commit whose build inputs these are" is checkable.
+ */
+function verifySourceCommit(sourceCommit, recordPath, root) {
+  if (typeof sourceCommit !== 'string' || !/^[0-9a-f]{40}$/.test(sourceCommit)) {
+    mismatchError(`record mismatch: sourceCommit must be 40 lowercase hex characters (record: ${recordPath})`);
+  }
+  try {
+    execFileSync('git', ['rev-parse', '--verify', `${sourceCommit}^{commit}`], {
+      cwd: root,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch {
+    mismatchError(`record mismatch: sourceCommit ${sourceCommit} is not a known commit (record: ${recordPath})`);
+  }
+  const buildInputs = ['src', 'package.json', 'README.md', 'LICENSE'];
+  let diffStatus = 0;
+  try {
+    execFileSync('git', ['diff', '--quiet', sourceCommit, '--', ...buildInputs], {
+      cwd: root,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (error) {
+    diffStatus = error !== null && typeof error === 'object' && 'status' in error ? Number(error.status) : 1;
+    if (diffStatus !== 1) {
+      mismatchError(
+        `record mismatch: sourceCommit ${sourceCommit} could not be compared to the working tree at ${root} (record: ${recordPath})`,
+      );
+    }
+  }
+  if (diffStatus === 1) {
+    mismatchError(
+      `record mismatch: sourceCommit ${sourceCommit} build inputs differ from the working tree at ${root} (record: ${recordPath})`,
+    );
+  }
+  let untracked = '';
+  try {
+    untracked = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '--', ...buildInputs], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch {
+    mismatchError(
+      `record mismatch: sourceCommit ${sourceCommit} could not be compared to the working tree at ${root} (record: ${recordPath})`,
+    );
+  }
+  if (untracked.trim() !== '') {
+    const names = untracked.trim().split('\n').join(', ');
+    mismatchError(
+      `record mismatch: sourceCommit ${sourceCommit} build inputs differ from the working tree at ${root} (untracked: ${names}) (record: ${recordPath})`,
+    );
+  }
 }
 
 function extractRecordJson(recordText) {
@@ -346,9 +425,9 @@ function main(argv) {
     if (!fs.existsSync(archivePath)) {
       usageError(`archive not found: ${archivePath}`);
     }
-    const names = readTarMembers(gunzipToBuffer(fs.readFileSync(archivePath)));
-    for (const name of names) {
-      process.stdout.write(`${name}\n`);
+    const members = readTarMembers(gunzipToBuffer(fs.readFileSync(archivePath)));
+    for (const member of members) {
+      process.stdout.write(`${member.name}\n`);
     }
     return 0;
   }
@@ -371,7 +450,9 @@ function main(argv) {
   if (options.checkRecord) {
     // Verification only: never write, never repair. A corrupt or missing
     // shipped artifact is the failure, not something to overwrite and then
-    // report as "matches".
+    // report as "matches". Every field the record claims is compared to the
+    // real thing: the fresh build, the shipped artifact, and the source
+    // commit the build inputs belong to.
     const recordPath = path.resolve(options.checkRecord);
     if (!fs.existsSync(recordPath)) {
       usageError(`release record not found: ${recordPath}`);
@@ -379,14 +460,25 @@ function main(argv) {
     const record = extractRecordJson(fs.readFileSync(recordPath, 'utf8'));
     const expected = record.archiveSha256;
     if (typeof expected !== 'string' || !/^[0-9a-f]{64}$/.test(expected)) {
-      usageError('release record archiveSha256 must be 64 lowercase hex characters');
+      mismatchError(`record mismatch: archiveSha256 must be 64 lowercase hex characters (record: ${recordPath})`);
     }
     if (record.version !== version) {
-      mismatchError(`record mismatch: version ${record.version} != built ${version}`);
+      mismatchError(`record mismatch: version ${record.version} != built ${version} (record: ${recordPath})`);
+    }
+    if (record.archiveFileName !== archiveName) {
+      mismatchError(
+        `record mismatch: archiveFileName ${JSON.stringify(record.archiveFileName)} != built ${archiveName} (record: ${recordPath})`,
+      );
+    }
+    if (record.archiveBytes !== gz.length) {
+      mismatchError(
+        `record mismatch: archiveBytes ${JSON.stringify(record.archiveBytes)} != built ${gz.length} (record: ${recordPath})`,
+      );
     }
     if (expected !== sha256) {
-      mismatchError(`record mismatch: expected ${expected}, built ${sha256}`);
+      mismatchError(`record mismatch: archiveSha256 expected ${expected}, built ${sha256} (record: ${recordPath})`);
     }
+    verifySourceCommit(record.sourceCommit, recordPath, root);
     if (!fs.existsSync(archivePath) || !fs.statSync(archivePath).isFile()) {
       mismatchError(`shipped artifact is missing: ${archivePath}; run node scripts/build-release-archive.mjs`);
     }
@@ -394,6 +486,11 @@ function main(argv) {
     const shippedSha256 = crypto.createHash('sha256').update(shipped).digest('hex');
     if (shippedSha256 !== expected) {
       mismatchError(`shipped artifact mismatch: ${archivePath} hashes to ${shippedSha256}, record names ${expected}`);
+    }
+    if (shipped.length !== record.archiveBytes) {
+      mismatchError(
+        `record mismatch: archiveBytes ${JSON.stringify(record.archiveBytes)} != shipped ${shipped.length} (record: ${recordPath}; artifact: ${archivePath})`,
+      );
     }
     process.stdout.write(
       `${JSON.stringify({ version, archive: archiveRelative, sha256: shippedSha256, bytes: shipped.length })}\n`,
