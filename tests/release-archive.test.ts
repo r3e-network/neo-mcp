@@ -310,6 +310,7 @@ describe('release record', () => {
   });
 
   test('--check-record rejects a record naming the wrong hash', () => {
+    buildOnce();
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-bad-record-'));
     try {
       const record = fs.readFileSync(recordPath, 'utf8');
@@ -318,13 +319,14 @@ describe('release record', () => {
       const badPath = path.join(scratch, 'bad-record.md');
       fs.writeFileSync(badPath, corrupted);
 
-      expect(() => runBuilder(['--check-record', badPath])).toThrow(/mismatch/i);
+      expect(() => runBuilder(['--check-record', badPath])).toThrow(/record mismatch: expected/i);
     } finally {
       fs.rmSync(scratch, { recursive: true, force: true });
     }
   });
 
   test('--check-record rejects a record naming the wrong version', () => {
+    buildOnce();
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-bad-version-'));
     try {
       const record = fs.readFileSync(recordPath, 'utf8');
@@ -333,10 +335,10 @@ describe('release record', () => {
         '"version": "0.0.0-wrong"',
       );
       expect(corrupted).not.toBe(record);
-      const badPath = path.join(scratch, 'bad-version.md');
+      const badPath = path.join(scratch, 'bad-version-record.md');
       fs.writeFileSync(badPath, corrupted);
 
-      expect(() => runBuilder(['--check-record', badPath])).toThrow(/version/i);
+      expect(() => runBuilder(['--check-record', badPath])).toThrow(/record mismatch: version/i);
     } finally {
       fs.rmSync(scratch, { recursive: true, force: true });
     }
