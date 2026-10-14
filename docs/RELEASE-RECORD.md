@@ -28,9 +28,9 @@ lands in the following commit.
   "package": "@r3e/neo-mcp",
   "version": "4.2.0",
   "archiveFileName": "neo-mcp-4.2.0.tar.gz",
-  "archiveSha256": "a00e059f9faeb23f85aeba3d89ab851d63a930a9037d71db169109a0f8f4d362",
-  "archiveBytes": 373066,
-  "sourceCommit": "08ab6e97524a9b07ed48c98682bde2a3f177d08b",
+  "archiveSha256": "c8b77e4f847be16105b610e55b13f7d92ed3d3ab3867cb1925cf920dd8597d33",
+  "archiveBytes": 373431,
+  "sourceCommit": "d24c5993f3de0d84c5cd7a7700aae74f3b81dbec",
   "contents": [
     "dist/",
     "package.json",
