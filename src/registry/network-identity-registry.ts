@@ -4,9 +4,10 @@
  * The only module the rest of the server reads for Neo N3 network identity.
  * It loads `src/config/generated/network-identities.v1.json` — the artifact
  * emitted by `scripts/generate-network-identities.mjs` — validates every field
- * fail-closed at module load, and hands out frozen identities. A malformed or
- * hand-edited artifact prevents the server from starting rather than letting a
- * call site sign against the wrong network.
+ * fail-closed at module load, rejects unknown fields rather than dropping
+ * them, and hands out frozen identities. A malformed or hand-edited artifact
+ * prevents the server from starting rather than letting a call site sign
+ * against the wrong network.
  */
 
 import networkIdentities from '../config/generated/network-identities.v1.json';
@@ -32,11 +33,26 @@ const SCHEMA_VERSION = 1;
 const GENESIS_HASH_PATTERN = /^0x[0-9a-f]{64}$/;
 const PROVENANCE_PATTERN = /^neo-go\/[0-9a-f]{40}\//;
 const NETWORK_NAME_PATTERN = /^(mainnet|testnet)$/;
+const DOCUMENT_FIELDS = ['schemaVersion', 'networks'] as const;
+const IDENTITY_FIELDS = ['network', 'magic', 'genesisHash', 'provenance'] as const;
 
 function failLoad(field: string, detail: string): never {
   // Module-load failure: a deployment misconfiguration, not a caller error. The
   // server must not start with unreviewed identity material.
   throw new Error(`network-identity-registry: ${field} ${detail}`);
+}
+
+function rejectUnknownKeys(
+  value: Record<string, unknown>,
+  allowed: readonly string[],
+  label: string,
+): void {
+  const unexpected = Object.keys(value)
+    .filter((key) => !(allowed as readonly string[]).includes(key))
+    .sort();
+  if (unexpected.length > 0) {
+    failLoad(label, `has unknown field(s) ${unexpected.join(', ')}; allowed fields are ${allowed.join(', ')}`);
+  }
 }
 
 function freezeIdentity(value: {
@@ -55,13 +71,16 @@ function freezeIdentity(value: {
 
 /**
  * Parse and validate a raw identity document. Throws on any malformed shape so
- * the caller never observes a half-validated map.
+ * the caller never observes a half-validated map. Unknown fields are rejected,
+ * not dropped: a configuration surface that silently ignores hand-added keys
+ * fails open.
  */
 export function parseNetworkIdentities(raw: unknown): NetworkIdentityMap {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     failLoad('document', 'must be a JSON object');
   }
-  const document = raw as { schemaVersion?: unknown; networks?: unknown };
+  const document = raw as Record<string, unknown>;
+  rejectUnknownKeys(document, DOCUMENT_FIELDS, 'document');
 
   if (document.schemaVersion !== SCHEMA_VERSION) {
     failLoad('schemaVersion', `must be exactly ${SCHEMA_VERSION}, got ${JSON.stringify(document.schemaVersion)}`);
@@ -84,6 +103,7 @@ export function parseNetworkIdentities(raw: unknown): NetworkIdentityMap {
       failLoad(`networks.${name}`, 'must be an object');
     }
     const identity = entry as Record<string, unknown>;
+    rejectUnknownKeys(identity, IDENTITY_FIELDS, `networks.${name}`);
 
     if (identity.network !== name) {
       failLoad(`networks.${name}.network`, `must equal its key, got ${JSON.stringify(identity.network)}`);

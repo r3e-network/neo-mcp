@@ -18,7 +18,8 @@
  *   node scripts/generate-network-identities.mjs --check   verify no drift
  *   node scripts/generate-network-identities.mjs --help    show this text
  *
- * Exit codes: 0 success, 1 drift under --check, 2 usage or write failure.
+ * Exit codes: 0 success, 1 drift or a missing artifact under --check, 2 usage
+ * or write failure.
  */
 
 import fs from 'node:fs';
@@ -113,7 +114,7 @@ function main(argv) {
       process.stdout.write(
         'Usage: node scripts/generate-network-identities.mjs [--check]\n' +
           '  (no flags)  rewrite src/config/generated/network-identities.v1.json\n' +
-          '  --check     exit 1 if the committed artifact differs from the generator output\n',
+          '  --check     exit 1 if the committed artifact is missing or differs from the generator output\n',
       );
       return 0;
     } else {
@@ -128,13 +129,16 @@ function main(argv) {
 
   if (checkOnly) {
     if (!fs.existsSync(artifactPath)) {
-      process.stderr.write(`generate-network-identities: ${ARTIFACT_RELATIVE_PATH} is missing\n`);
+      process.stderr.write(
+        `generate-network-identities: missing expected artifact ${artifactPath} ` +
+          `(expected at ${ARTIFACT_RELATIVE_PATH})\n`,
+      );
       return 1;
     }
     const current = fs.readFileSync(artifactPath, 'utf8');
     if (current !== output) {
       process.stderr.write(
-        `generate-network-identities: ${ARTIFACT_RELATIVE_PATH} does not match the generator output; ` +
+        `generate-network-identities: ${artifactPath} does not match the generator output; ` +
           'run node scripts/generate-network-identities.mjs\n',
       );
       return 1;

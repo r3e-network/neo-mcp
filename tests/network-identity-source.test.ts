@@ -55,6 +55,37 @@ describe('generated Neo N3 identity source', () => {
     const after = fs.readFileSync(artifactPath);
     expect(after.equals(before)).toBe(true);
   });
+
+  test('--check fails closed when the artifact is missing', () => {
+    const backup = fs.readFileSync(artifactPath);
+    try {
+      fs.rmSync(artifactPath);
+      let status = 0;
+      let stderr = '';
+      try {
+        execFileSync(process.execPath, [generatorPath, '--check'], {
+          cwd: repoRoot,
+          encoding: 'utf8',
+          stdio: 'pipe',
+        });
+      } catch (error) {
+        const failure = error as { status?: number; stderr?: string | Buffer };
+        status = failure.status ?? -1;
+        stderr = String(failure.stderr ?? '');
+      }
+      expect(status).not.toBe(0);
+      // the message must name the expected path, not just say "missing"
+      expect(stderr).toContain(artifactPath);
+      expect(stderr).toMatch(/missing/i);
+    } finally {
+      fs.writeFileSync(artifactPath, backup);
+    }
+    // and the restored artifact is current again
+    execFileSync(process.execPath, [generatorPath, '--check'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+  });
 });
 
 describe('network identity registry', () => {
@@ -100,6 +131,28 @@ describe('network identity registry', () => {
       { label: 'provenance missing commit', value: { ...valid, networks: { ...valid.networks, mainnet: { ...valid.networks.mainnet, provenance: 'neo-go/main/config/protocol.mainnet.yml#CreateGenesisBlock' } } } },
       { label: 'provenance wrong project', value: { ...valid, networks: { ...valid.networks, mainnet: { ...valid.networks.mainnet, provenance: 'other/6d7bd0c7d612c1e9eeaf08efbb8788efef5a449b/config/protocol.mainnet.yml#CreateGenesisBlock' } } } },
       { label: 'missing provenance', value: { ...valid, networks: { ...valid.networks, mainnet: { ...valid.networks.mainnet, provenance: undefined } } } },
+      { label: 'extra top-level key', value: { ...valid, unexpected: 1 } },
+      { label: 'extra top-level key with nested value', value: { ...valid, defaults: { magic: 1 } } },
+      {
+        label: 'extra identity field',
+        value: {
+          ...valid,
+          networks: {
+            ...valid.networks,
+            mainnet: { ...valid.networks.mainnet, privateKey: 's3cret' },
+          },
+        },
+      },
+      {
+        label: 'extra identity field on testnet',
+        value: {
+          ...valid,
+          networks: {
+            ...valid.networks,
+            testnet: { ...valid.networks.testnet, comment: 'hand edit' },
+          },
+        },
+      },
     ];
 
     for (const { label, value } of mutations) {
