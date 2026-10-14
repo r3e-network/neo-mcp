@@ -116,14 +116,23 @@ describe('version string agreement', () => {
     expect(disagreements).toEqual([]);
   });
 
-  test('the agreement check is sensitive: a drifted surface is reported by name', () => {
-    // Prove the comparison can fail without editing any file: feed a surface
-    // that lies and confirm the same reporting path flags it.
-    const lie = (): string => '0.0.0-drifted';
-    const drifted = { name: 'synthetic-drift-surface', read: lie };
-    const actual = drifted.read();
-    expect(actual === packageVersion).toBe(false);
-    expect(`${drifted.name}: "${actual}" != "${packageVersion}"`).toContain('synthetic-drift-surface');
-    expect(actual).not.toBe(packageVersion);
+  test('the changelog extractor skips Unreleased and takes the first released heading', () => {
+    const headings = [
+      ...readText('docs/CHANGELOG.md').matchAll(
+        /^## \[([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)\]/gm,
+      ),
+    ].map((match) => match[1] as string);
+    expect(headings[0]).toBe(packageVersion);
+    expect(headings).not.toContain('Unreleased');
+    expect(readText('docs/CHANGELOG.md')).toMatch(/^## \[Unreleased\]/m);
+  });
+
+  test('the accepted version grammar covers a semver prerelease and rejects debris', () => {
+    const semver = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/;
+    expect('4.2.0-rc.1').toMatch(semver);
+    expect('4.2.0').toMatch(semver);
+    expect('4.2').not.toMatch(semver);
+    expect('4.2.0+build').not.toMatch(semver);
+    expect('v4.2.0').not.toMatch(semver);
   });
 });
