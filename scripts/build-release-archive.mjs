@@ -15,6 +15,10 @@
  *   node scripts/build-release-archive.mjs --list --archive FILE
  *   node scripts/build-release-archive.mjs --check-record FILE
  *
+ * `--check-record` verifies the record against a fresh in-memory build *and*
+ * against the shipped artifact on disk. It never writes or repairs the
+ * artifact: a missing or corrupt artifact is a failure naming its path.
+ *
  * Exit codes: 0 success, 1 record/hash mismatch, 2 usage or missing input.
  */
 
@@ -28,7 +32,33 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ARCHIVE_MEMBERS = ['package.json', 'README.md', 'LICENSE'];
 const REQUIRED_DIST_ENTRIES = ['index.js', 'mcp-http.js'];
-const FORBIDDEN_PREFIXES = ['node_modules/', '.git', 'src/', 'tests/', 'docs/', 'scripts/', 'release-artifacts/'];
+
+/**
+ * Families that must never enter the archive. Collection is a whitelist, so
+ * this guard is defence in depth: `assertMemberAllowed` is exported and the
+ * tests feed it forbidden paths directly.
+ */
+export const FORBIDDEN_PREFIXES = ['node_modules/', '.git', 'src/', 'tests/', 'docs/', 'scripts/', 'release-artifacts/'];
+
+/**
+ * The only accepted `package.json` version shape: a plain semver release with
+ * an optional prerelease. Exported so tests assert against this exact pattern
+ * rather than a private copy that can drift from `readPackageVersion`.
+ */
+export const PACKAGE_VERSION_PATTERN = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/;
+
+export function isPlainPackageVersion(value) {
+  return typeof value === 'string' && PACKAGE_VERSION_PATTERN.test(value);
+}
+
+export function assertMemberAllowed(relativePath) {
+  for (const forbidden of FORBIDDEN_PREFIXES) {
+    if (relativePath === forbidden || relativePath.startsWith(forbidden)) {
+      throw new Error(`refusing to archive ${relativePath}`);
+    }
+  }
+}
+
 const TAR_BLOCK = 512;
 
 function usageError(message) {
@@ -92,7 +122,7 @@ function readPackageVersion(root) {
     usageError(`cannot parse package.json: ${error instanceof Error ? error.message : String(error)}`);
   }
   const version = parsed && parsed.version;
-  if (typeof version !== 'string' || !/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
+  if (!isPlainPackageVersion(version)) {
     usageError('package.json version must be a plain semver string');
   }
   return version;
@@ -139,10 +169,10 @@ function collectMembers(root) {
   members.sort((a, b) => (a.relative < b.relative ? -1 : a.relative > b.relative ? 1 : 0));
 
   for (const member of members) {
-    for (const forbidden of FORBIDDEN_PREFIXES) {
-      if (member.relative === forbidden || member.relative.startsWith(forbidden)) {
-        usageError(`refusing to archive ${member.relative}`);
-      }
+    try {
+      assertMemberAllowed(member.relative);
+    } catch (error) {
+      usageError(error instanceof Error ? error.message : String(error));
     }
   }
   return members;
@@ -334,20 +364,14 @@ function main(argv) {
   const sha256 = crypto.createHash('sha256').update(gz).digest('hex');
 
   const outDir = path.resolve(options.out ?? path.join(root, 'release-artifacts'));
-  fs.mkdirSync(outDir, { recursive: true });
   const archiveName = `neo-mcp-${version}.tar.gz`;
   const archivePath = path.join(outDir, archiveName);
-  fs.writeFileSync(archivePath, gz);
-
-  const result = {
-    version,
-    archive: path.relative(root, archivePath).split(path.sep).join('/'),
-    sha256,
-    bytes: gz.length,
-  };
-  process.stdout.write(`${JSON.stringify(result)}\n`);
+  const archiveRelative = path.relative(root, archivePath).split(path.sep).join('/');
 
   if (options.checkRecord) {
+    // Verification only: never write, never repair. A corrupt or missing
+    // shipped artifact is the failure, not something to overwrite and then
+    // report as "matches".
     const recordPath = path.resolve(options.checkRecord);
     if (!fs.existsSync(recordPath)) {
       usageError(`release record not found: ${recordPath}`);
@@ -357,14 +381,37 @@ function main(argv) {
     if (typeof expected !== 'string' || !/^[0-9a-f]{64}$/.test(expected)) {
       usageError('release record archiveSha256 must be 64 lowercase hex characters');
     }
-    if (expected !== sha256) {
-      mismatchError(`record mismatch: expected ${expected}, built ${sha256}`);
-    }
     if (record.version !== version) {
       mismatchError(`record mismatch: version ${record.version} != built ${version}`);
     }
-    process.stdout.write('record matches the freshly built archive\n');
+    if (expected !== sha256) {
+      mismatchError(`record mismatch: expected ${expected}, built ${sha256}`);
+    }
+    if (!fs.existsSync(archivePath) || !fs.statSync(archivePath).isFile()) {
+      mismatchError(`shipped artifact is missing: ${archivePath}; run node scripts/build-release-archive.mjs`);
+    }
+    const shipped = fs.readFileSync(archivePath);
+    const shippedSha256 = crypto.createHash('sha256').update(shipped).digest('hex');
+    if (shippedSha256 !== expected) {
+      mismatchError(`shipped artifact mismatch: ${archivePath} hashes to ${shippedSha256}, record names ${expected}`);
+    }
+    process.stdout.write(
+      `${JSON.stringify({ version, archive: archiveRelative, sha256: shippedSha256, bytes: shipped.length })}\n`,
+    );
+    process.stdout.write('record matches the shipped archive\n');
+    return 0;
   }
+
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(archivePath, gz);
+
+  const result = {
+    version,
+    archive: archiveRelative,
+    sha256,
+    bytes: gz.length,
+  };
+  process.stdout.write(`${JSON.stringify(result)}\n`);
   return 0;
 }
 

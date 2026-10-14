@@ -5,8 +5,13 @@ identifies it. Rebuild and verify with:
 
 ```bash
 npm run build
+node scripts/build-release-archive.mjs
 node scripts/build-release-archive.mjs --check-record docs/RELEASE-RECORD.md
 ```
+
+`--check-record` never writes or repairs the shipped artifact. It rebuilds in memory,
+compares the record to that rebuild, and then hashes `release-artifacts/*.tar.gz` as
+found on disk: a missing or corrupt artifact fails the check and names its path.
 
 The archive holds exactly `dist/**`, `package.json`, `README.md`, and `LICENSE`. It is
 built deterministically (sorted paths, zero mtimes, uid/gid 0, gzip without a timestamp),
@@ -53,8 +58,11 @@ lands in the following commit.
 ## Verification
 
 `tests/release-archive.test.ts` rebuilds the archive and fails if it does not hash to the
-value above, if two builds disagree, or if the archive holds anything outside `contents`.
-`tests/version-consistency.test.ts` fails if `version` disagrees with `package.json`.
+value above, if two builds disagree under different injected wall clocks, if the gzip
+container carries a timestamp, or if the archive holds anything outside `contents`.
+`--check-record` additionally hashes the shipped `release-artifacts/*.tar.gz` and fails
+rather than repairing it. `tests/version-consistency.test.ts` fails if `version`
+disagrees with `package.json`.
 
 ## Scope
 

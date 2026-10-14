@@ -1,4 +1,6 @@
+import { execFileSync } from 'child_process';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 const repoRoot = path.resolve(__dirname, '..');
@@ -92,9 +94,49 @@ const VERSION_SURFACES: readonly VersionSurface[] = [
   },
 ];
 
+/**
+ * The production version grammar lives in `scripts/build-release-archive.mjs`
+ * (`readPackageVersion`). The builder is an ES module that Jest cannot import
+ * without `--experimental-vm-modules`, so the export is read through a short
+ * node child. The test asserts against that export, not against a local copy,
+ * so a loosened production grammar is a caught mutant.
+ */
+function loadProductionVersionGrammar(): {
+  pattern: RegExp;
+  accepted: Readonly<Record<string, boolean>>;
+} {
+  const entry = path.join(repoRoot, 'scripts/build-release-archive.mjs');
+  const probes = ['4.2.0', '4.2.0-rc.1', '4.2', '4.2.0+build', 'v4.2.0', ''];
+  const script = `
+    import { PACKAGE_VERSION_PATTERN, isPlainPackageVersion } from ${JSON.stringify(entry)};
+    const probes = ${JSON.stringify(probes)};
+    const accepted = {};
+    for (const probe of probes) accepted[probe] = isPlainPackageVersion(probe);
+    process.stdout.write(JSON.stringify({
+      source: PACKAGE_VERSION_PATTERN.source,
+      flags: PACKAGE_VERSION_PATTERN.flags,
+      accepted,
+    }));
+  `;
+  const stdout = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  const parsed = JSON.parse(stdout) as {
+    source: string;
+    flags: string;
+    accepted: Record<string, boolean>;
+  };
+  return {
+    pattern: new RegExp(parsed.source, parsed.flags),
+    accepted: parsed.accepted,
+  };
+}
+
 describe('version string agreement', () => {
   test('package.json declares a plain semver version', () => {
-    expect(packageVersion).toMatch(/^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/);
+    const { pattern } = loadProductionVersionGrammar();
+    expect(packageVersion).toMatch(pattern);
   });
 
   test('every declared current-version surface agrees with package.json', () => {
@@ -127,12 +169,46 @@ describe('version string agreement', () => {
     expect(readText('docs/CHANGELOG.md')).toMatch(/^## \[Unreleased\]/m);
   });
 
-  test('the accepted version grammar covers a semver prerelease and rejects debris', () => {
-    const semver = /^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$/;
-    expect('4.2.0-rc.1').toMatch(semver);
-    expect('4.2.0').toMatch(semver);
-    expect('4.2').not.toMatch(semver);
-    expect('4.2.0+build').not.toMatch(semver);
-    expect('v4.2.0').not.toMatch(semver);
+  test('the production version grammar covers a semver prerelease and rejects debris', () => {
+    const { pattern, accepted } = loadProductionVersionGrammar();
+
+    expect('4.2.0-rc.1').toMatch(pattern);
+    expect('4.2.0').toMatch(pattern);
+    expect('4.2').not.toMatch(pattern);
+    expect('4.2.0+build').not.toMatch(pattern);
+    expect('v4.2.0').not.toMatch(pattern);
+    expect('').not.toMatch(pattern);
+
+    // the predicate the builder actually calls must agree with the pattern
+    expect(accepted['4.2.0']).toBe(true);
+    expect(accepted['4.2.0-rc.1']).toBe(true);
+    expect(accepted['4.2']).toBe(false);
+    expect(accepted['4.2.0+build']).toBe(false);
+    expect(accepted['v4.2.0']).toBe(false);
+    expect(accepted['']).toBe(false);
+  });
+
+  test('readPackageVersion rejects a debris version at the builder boundary', () => {
+    const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'neo-mcp-bad-version-grammar-'));
+    try {
+      fs.writeFileSync(
+        path.join(fixture, 'package.json'),
+        JSON.stringify({ name: '@r3e/neo-mcp', version: 'v4.2.0' }),
+      );
+      fs.writeFileSync(path.join(fixture, 'README.md'), '# fixture\n');
+      fs.writeFileSync(path.join(fixture, 'LICENSE'), 'MIT\n');
+      fs.mkdirSync(path.join(fixture, 'dist'), { recursive: true });
+      fs.writeFileSync(path.join(fixture, 'dist', 'index.js'), 'module.exports = {};\n');
+      fs.writeFileSync(path.join(fixture, 'dist', 'mcp-http.js'), 'module.exports = {};\n');
+      expect(() =>
+        execFileSync(
+          process.execPath,
+          [path.join(repoRoot, 'scripts/build-release-archive.mjs'), '--root', fixture],
+          { cwd: repoRoot, encoding: 'utf8', stdio: 'pipe' },
+        ),
+      ).toThrow(/version/i);
+    } finally {
+      fs.rmSync(fixture, { recursive: true, force: true });
+    }
   });
 });
