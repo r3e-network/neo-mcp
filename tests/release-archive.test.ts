@@ -89,8 +89,13 @@ describe('reproducible release archive', () => {
     expect(members).toContain('dist/mcp-http.js');
     expect(members).toContain('dist/index.js');
 
+    // The collection is a whitelist, so a loosened FORBIDDEN_PREFIXES would not
+    // change the members list on its own. Pin the guard's own declaration so
+    // removing a forbidden family is still a caught, compile-clean mutant.
+    const builderSource = fs.readFileSync(builderPath, 'utf8');
     for (const forbiddenPrefix of ['node_modules/', '.git', 'src/', 'tests/', 'docs/', 'scripts/', 'release-artifacts/']) {
       expect(members.some((member) => member.startsWith(forbiddenPrefix))).toBe(false);
+      expect(builderSource).toContain(`'${forbiddenPrefix}'`);
     }
     expect(members).not.toContain('docs/RELEASE-RECORD.md');
 
