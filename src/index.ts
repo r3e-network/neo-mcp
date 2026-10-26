@@ -38,6 +38,7 @@ import { SignerProvider } from './services/signer-provider';
 import { WriteCoordinator, WriteOperationName } from './services/write-coordinator';
 import { WriteOperationService } from './services/write-operation-service';
 import { validateNetwork } from './utils/validation';
+import { MAX_TOOL_INPUT_ELEMENTS } from './utils/tool-input-limit';
 
 /** `key(param, ...)` signatures so callers see each n3index endpoint's exact param allowlist. */
 const N3_REST_ENDPOINT_SIGNATURES: string = renderN3EndpointSignatures();
@@ -159,6 +160,7 @@ export class NeoMcpServer {
       version: SERVER_VERSION,
       description: 'Read, simulate, and construct unsigned Neo N3 and Neo X operations.',
     }, {
+      maxToolInputElements: MAX_TOOL_INPUT_ELEMENTS,
       capabilities: {
         tools: {},
         resources: {},

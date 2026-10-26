@@ -12,7 +12,7 @@
 
 The two HTTP servers are unrelated and configured separately. See [Remote MCP 2026 HTTP](#remote-mcp-2026-http) and [docs/remote-mcp-transport.md](./docs/remote-mcp-transport.md).
 
-Current version: `4.2.0`. Node.js `>=22` is required. Version 4 speaks only
+Current version: `4.2.1`. Node.js `>=22` is required. Version 4 speaks only
 MCP `2026-07-28`; clients using the removed initialization/session protocol are
 rejected rather than downgraded.
 
@@ -99,7 +99,7 @@ console.log({ blockCount, height: Math.max(0, blockCount - 1) });
 | `MCP_HTTP_ALLOWED_ORIGINS` | Comma-separated exact origins allowed to connect from a browser | empty |
 | `MCP_HTTP_MAX_CONCURRENT_REQUESTS` | Concurrent in-flight MCP request cap | `128` |
 | `MCP_HTTP_MAX_SUBSCRIPTIONS` | Concurrent `subscriptions/listen` stream cap | `128` |
-| `MCP_HTTP_MAX_BODY_BYTES` | Maximum MCP POST body size | `4194304` (4 MiB) |
+| `MCP_HTTP_MAX_BODY_BYTES` | Maximum MCP POST body size | `1048576` (1 MiB) |
 | `MCP_HTTP_BODY_TIMEOUT_MS` | Deadline for receiving an MCP request body | `30000` |
 | `MCP_HTTP_HEADERS_TIMEOUT_MS` | Deadline for receiving MCP headers | `30000` |
 | `MCP_HTTP_REQUEST_TIMEOUT_MS` | Overall MCP HTTP request deadline | `300000` |
@@ -115,6 +115,8 @@ console.log({ blockCount, height: Math.max(0, blockCount - 1) });
 | `PORT` | HTTP listen port | `3000` |
 
 The aliases `NEO_MAINNET_RPC_URL`, `NEO_TESTNET_RPC_URL`, and `NEO_NETWORK_MODE` remain supported.
+
+MCP tool arguments are limited to 10,000 combined array elements and object members. The HTTP transport enforces this before constructing application services; stdio enforces the same limit in the MCP SDK.
 
 Remote RPC endpoints must use HTTPS. Plain HTTP is accepted for loopback RPC endpoints; setting `NEO_ALLOW_INSECURE_RPC=true` explicitly permits remote plaintext HTTP and should be limited to controlled development environments.
 

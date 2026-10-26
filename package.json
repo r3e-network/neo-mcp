@@ -1,6 +1,6 @@
 {
   "name": "@r3e/neo-mcp",
-  "version": "4.2.0",
+  "version": "4.2.1",
   "description": "MCP server and HTTP API for Neo N3 and Neo X blockchain integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -83,7 +83,7 @@
     "url": "https://github.com/r3e-network/neo-mcp/issues"
   },
   "devDependencies": {
-    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/client": "^2.4.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.20.1",
     "brace-expansion": "file:./tools/brace-expansion-cjs",
@@ -97,8 +97,9 @@
     "ajv-formats": "^3.0.1",
     "@cityofzion/neon-js": "^5.9.0",
     "@modelcontextprotocol/node": "^2.0.0",
-    "@modelcontextprotocol/server": "^2.0.0",
-    "zod": "^4.2.0"
+    "@modelcontextprotocol/server": "^2.4.0",
+    "hono": "^4.13.14",
+    "zod": "^4.6.7"
   },
   "overrides": {
     "@cityofzion/neon-core": {

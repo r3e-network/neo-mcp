@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.2.1] - 2026-10-26
+
+### Security
+- Limit MCP tool arguments to 10,000 elements before application services initialize.
+- Reduce the default MCP HTTP request body limit to 1 MiB.
+- Refresh MCP protocol, validation, and brace expansion dependencies.
+
 ## [4.2.0] - 2026-08-29
 
 ### Added

@@ -113,7 +113,7 @@ a session identifier.
 | `MCP_HTTP_ALLOWED_HOSTS` | empty | Optional Host-header allowlist |
 | `MCP_HTTP_MAX_CONCURRENT_REQUESTS` | `128` | In-flight request cap |
 | `MCP_HTTP_MAX_SUBSCRIPTIONS` | `128` | Concurrent `subscriptions/listen` cap |
-| `MCP_HTTP_MAX_BODY_BYTES` | `4194304` | Maximum request body |
+| `MCP_HTTP_MAX_BODY_BYTES` | `1048576` | Maximum request body |
 | `MCP_HTTP_BODY_TIMEOUT_MS` | `30000` | Request-body deadline |
 | `MCP_HTTP_HEADERS_TIMEOUT_MS` | `30000` | Header deadline |
 | `MCP_HTTP_REQUEST_TIMEOUT_MS` | `300000` | Whole-request deadline |
@@ -124,6 +124,9 @@ a session identifier.
 
 An incoming `Origin` is rejected unless it is on the exact allowlist. Server
 clients normally omit `Origin`. The bearer is compared in constant time.
+Tool arguments may contain at most 10,000 combined array elements and object
+members. Valid requests over that limit receive an in-band `-32602` response
+before application services are constructed.
 
 The process also uses shared Neo RPC, logging, and rate-limit configuration.
 Keep `NEO_ENABLE_WRITES=false` on the public remote deployment.

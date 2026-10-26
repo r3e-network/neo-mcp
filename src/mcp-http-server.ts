@@ -24,6 +24,7 @@ import {
 import { config } from './config';
 import { NeoMcpServer } from './index';
 import { logger } from './utils/logger';
+import { rejectOversizedToolInput } from './utils/tool-input-limit';
 import { SERVER_VERSION } from './version';
 
 export const MCP_PROTOCOL_VERSION = '2026-07-28';
@@ -32,7 +33,7 @@ export const DEFAULT_MCP_HTTP_HOST = '127.0.0.1';
 export const DEFAULT_MCP_HTTP_PATH = '/mcp';
 export const DEFAULT_MCP_HTTP_MAX_CONCURRENT_REQUESTS = 128;
 export const DEFAULT_MCP_HTTP_MAX_SUBSCRIPTIONS = 128;
-export const DEFAULT_MCP_HTTP_MAX_BODY_BYTES = 4 * 1024 * 1024;
+export const DEFAULT_MCP_HTTP_MAX_BODY_BYTES = 1024 * 1024;
 
 const DEFAULT_BODY_TIMEOUT_MS = 30_000;
 const DEFAULT_HEADERS_TIMEOUT_MS = 30_000;
@@ -295,7 +296,13 @@ export class McpHttpServer {
         }),
       },
     );
-    this.nodeHandler = toNodeHandler(this.mcpHandler, {
+    this.nodeHandler = toNodeHandler({
+      fetch: async (request, options) => rejectOversizedToolInput(
+        request,
+        options?.parsedBody,
+        MCP_PROTOCOL_VERSION,
+      ) ?? this.mcpHandler.fetch(request, options),
+    }, {
       onerror: (error) => logger.error('MCP Node adapter error', { error: error.message }),
     });
   }

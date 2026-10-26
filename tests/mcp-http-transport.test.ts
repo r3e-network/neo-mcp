@@ -10,6 +10,7 @@ import {
 } from '@modelcontextprotocol/client';
 
 import {
+  DEFAULT_MCP_HTTP_MAX_BODY_BYTES,
   MCP_PROTOCOL_VERSION,
   McpHttpServer,
   McpHttpServerOptions,
@@ -389,6 +390,7 @@ describe('MCP 2026-07-28 stateless HTTP transport', () => {
     });
 
     test('enforces the request-body byte cap', async () => {
+      expect(DEFAULT_MCP_HTTP_MAX_BODY_BYTES).toBe(1024 * 1024);
       const started = await startServer({ maxBodyBytes: 64 });
       const response = await fetch(started.url, {
         method: 'POST',
@@ -399,6 +401,44 @@ describe('MCP 2026-07-28 stateless HTTP transport', () => {
         body: JSON.stringify({ payload: 'x'.repeat(256) }),
       });
       expect(response.status).toBe(413);
+    });
+
+    test('rejects oversized tool input before constructing application services', async () => {
+      const createMcpServer = jest.fn(() => {
+        throw new Error('application services must not be constructed for invalid input');
+      });
+      const started = await startServer({ createMcpServer });
+      const oversizedCall = {
+        jsonrpc: '2.0',
+        id: 10,
+        method: 'tools/call',
+        params: {
+          _meta: modernMeta(),
+          name: 'get_network_mode',
+          arguments: { values: Array.from({ length: 10_001 }, () => null) },
+        },
+      };
+      const response = await rawModernRequest(started, oversizedCall, {
+        'Mcp-Method': 'tools/call',
+        'Mcp-Name': 'get_network_mode',
+      });
+      const payload = await response.json() as any;
+
+      expect(response.status).toBe(200);
+      expect(payload).toEqual(expect.objectContaining({ jsonrpc: '2.0', id: 10 }));
+      expect(payload.error).toEqual(expect.objectContaining({
+        code: -32602,
+        message: expect.stringMatching(/maximum of 10000 elements/),
+      }));
+      expect(createMcpServer).not.toHaveBeenCalled();
+      expect(started.server.activeRequestCount).toBe(0);
+
+      const mismatch = await rawModernRequest(started, oversizedCall, {
+        'Mcp-Method': 'tools/list',
+      });
+      expect(mismatch.status).toBe(400);
+      expect((await mismatch.json() as any).error.code).toBe(-32020);
+      expect(createMcpServer).not.toHaveBeenCalled();
     });
 
     test('times out a partial request body', async () => {
