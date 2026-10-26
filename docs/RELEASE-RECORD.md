@@ -34,7 +34,7 @@ lands in the following commit.
   "archiveFileName": "neo-mcp-4.2.1.tar.gz",
   "archiveSha256": "4845ebf558bdac572247178545f92be04b513a1707fe533a8546333439a3b36e",
   "archiveBytes": 376922,
-  "sourceCommit": "cff4ed7d4413a522a0a4921ba65be073c5d6a136",
+  "sourceCommit": "90c84067961b0d0d898fcf491cc8dcf98a068dc8",
   "contents": [
     "dist/",
     "package.json",
