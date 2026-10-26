@@ -30,11 +30,11 @@ lands in the following commit.
 ```json
 {
   "package": "@r3e/neo-mcp",
-  "version": "4.2.0",
-  "archiveFileName": "neo-mcp-4.2.0.tar.gz",
-  "archiveSha256": "c8b77e4f847be16105b610e55b13f7d92ed3d3ab3867cb1925cf920dd8597d33",
-  "archiveBytes": 373431,
-  "sourceCommit": "d24c5993f3de0d84c5cd7a7700aae74f3b81dbec",
+  "version": "4.2.1",
+  "archiveFileName": "neo-mcp-4.2.1.tar.gz",
+  "archiveSha256": "4845ebf558bdac572247178545f92be04b513a1707fe533a8546333439a3b36e",
+  "archiveBytes": 376922,
+  "sourceCommit": "cff4ed7d4413a522a0a4921ba65be073c5d6a136",
   "contents": [
     "dist/",
     "package.json",
@@ -82,3 +82,10 @@ should record the deployed host's own `sha256sum` of the file alongside this val
 Rewrite the JSON block whenever the build output or version changes: bump `version`, re-run
 `node scripts/build-release-archive.mjs` after `npm run build`, and copy the printed
 `sha256` and `bytes`. Then run `--check-record` before anything is deployed.
+
+## Previous local build
+
+The preceding 4.2.0 local build remains identified by source commit
+`d24c5993f3de0d84c5cd7a7700aae74f3b81dbec`, archive `neo-mcp-4.2.0.tar.gz`,
+SHA-256 `c8b77e4f847be16105b610e55b13f7d92ed3d3ab3867cb1925cf920dd8597d33`, 373431 bytes.
+No registry publication or production deployment is asserted by either record.
