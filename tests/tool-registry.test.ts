@@ -102,6 +102,9 @@ const EXPECTED_PUBLIC_TOOLS = [
   'query_explorer',
   'query_explorer_find',
   'query_explorer_graphql',
+  // NeoX Fura deep-analytics generic query (Neo X only; the Neo X counterpart
+  // of the Neo N3 fura surface reachable through query_indexer/analyze_*).
+  'query_neox_fura',
 ];
 
 describe('public tool surface', () => {
@@ -113,8 +116,9 @@ describe('public tool surface', () => {
     // The pin is the exact size of the reviewed public surface, not a headroom
     // allowance: every addition is a deliberate edit here and must re-bless this
     // number in the same change. It has moved 58 -> 62 (app intent and skills)
-    // -> 63 (resolve_recipient) -> 64 (summarize_account_activity).
-    expect(publicToolNames().length).toBe(64);
+    // -> 63 (resolve_recipient) -> 64 (summarize_account_activity)
+    // -> 65 (query_neox_fura, the NeoX Fura selector).
+    expect(publicToolNames().length).toBe(65);
   });
 
   it('pins an empty set of duplicate or stale surface-size assertions', () => {
@@ -250,10 +254,7 @@ describe('chain discriminator', () => {
       'estimate_invoke_fees',
       'build_vote',
       'build_nns_operation',
-      'explorer_list_address_assets',
-      'analyze_address',
       'request_account_watch',
-      'analyze_contract',
       'inspect_contract_code',
       'analyze_transaction',
       'query_explorer_find',
@@ -499,13 +500,13 @@ describe('explorer routing', () => {
       .toBe('n3_get_address');
     expect(resolveRoute('explorer_get_address', { chain: 'neox', address: '0x1' }).internalName)
       .toBe('x_get_address');
-    expect(resolveRoute('analyze_address', { address: 'N1' }).internalName)
+    expect(resolveRoute('analyze_address', { chain: 'n3', address: 'N1' }).internalName)
       .toBe('query_indexer');
-    expect(resolveRoute('analyze_account_graph', { address: 'N1' }).internalName)
+    expect(resolveRoute('analyze_account_graph', { chain: 'n3', address: 'N1' }).internalName)
       .toBe('query_indexer');
     expect(resolveRoute('analyze_consensus_health', { network: 'testnet' }).internalName)
       .toBe('query_indexer');
-    expect(resolveRoute('analyze_contract', { contractHash: `0x${'1'.repeat(40)}` }).internalName)
+    expect(resolveRoute('analyze_contract', { chain: 'n3', contractHash: `0x${'1'.repeat(40)}` }).internalName)
       .toBe('query_indexer');
     expect(resolveRoute('inspect_contract_code', { contractHash: `0x${'1'.repeat(40)}` }).internalName)
       .toBe('query_indexer');
@@ -525,7 +526,7 @@ describe('explorer routing', () => {
       .toBe('n3_asset_holders');
     expect(resolveRoute('explorer_list_token_holders', { chain: 'neox', contractHash: '0x1' }).internalName)
       .toBe('x_token_holders');
-    expect(resolveRoute('explorer_list_address_assets', { address: 'N1' }).internalName)
+    expect(resolveRoute('explorer_list_address_assets', { chain: 'n3', address: 'N1' }).internalName)
       .toBe('n3_assets_held_by_address');
   });
 
@@ -547,6 +548,7 @@ describe('explorer routing', () => {
 
   it('maps the dedicated address analysis tool to the bounded catalog endpoint', () => {
     const route = resolveRoute('analyze_address', {
+      chain: 'n3',
       address: 'N1',
       sample: 40,
       limit: 8,
@@ -585,6 +587,7 @@ describe('explorer routing', () => {
 
   it('maps account graph analysis to the bounded graph catalog endpoint', () => {
     const route = resolveRoute('analyze_account_graph', {
+      chain: 'n3',
       address: 'N1',
       limit: 20,
       network: 'testnet',
@@ -655,6 +658,7 @@ describe('explorer routing', () => {
   it('maps the dedicated contract analysis tool to exact indexed facts', () => {
     const contractHash = `0x${'1'.repeat(40)}`;
     const route = resolveRoute('analyze_contract', {
+      chain: 'n3',
       contractHash,
       network: 'testnet',
     });
@@ -803,8 +807,10 @@ describe('route metadata', () => {
       ['analyze_neox_address', { address: `0x${'1'.repeat(40)}` }],
       ['analyze_neox_contract', { address: `0x${'1'.repeat(40)}` }],
       ['analyze_neox_token', { address: `0x${'1'.repeat(40)}` }],
-      ['analyze_address', { address: 'N1' }],
-      ['analyze_contract', { contractHash: `0x${'1'.repeat(40)}` }],
+      ['analyze_address', { chain: 'n3', address: 'N1' }],
+      ['analyze_address', { chain: 'neox', address: `0x${'2'.repeat(40)}` }],
+      ['analyze_contract', { chain: 'n3', contractHash: `0x${'1'.repeat(40)}` }],
+      ['query_neox_fura', { topic: 'whales' }],
       ['inspect_contract_code', { contractHash: `0x${'1'.repeat(40)}` }],
       ['analyze_transaction', { txid: `0x${'1'.repeat(64)}` }],
       ['investigate_transactions', { txids: [`0x${'1'.repeat(64)}`] }],
@@ -882,5 +888,57 @@ describe('route metadata', () => {
     const second = resolveRoute('get_block', input);
     expect(second.args.blockHashOrHeight).toBe(1);
     expect(input.chain).toBe('neox');
+  });
+});
+
+describe('NeoX Fura deep-analytics routing', () => {
+  const evmAddress = `0x${'a'.repeat(40)}`;
+
+  it('routes the four upgraded unified tools onto the NeoX Fura readapi on Neo X', () => {
+    expect(resolveRoute('analyze_address', { chain: 'neox', address: evmAddress }).internalName)
+      .toBe('x_fura_address_analytics');
+    expect(resolveRoute('analyze_account_graph', {
+      chain: 'neox',
+      address: evmAddress,
+      depth: 2,
+    }).internalName).toBe('x_fura_account_graph');
+    expect(resolveRoute('analyze_contract', {
+      chain: 'neox',
+      contractHash: evmAddress,
+    }).internalName).toBe('x_fura_contract_analytics');
+    const assetsRoute = resolveRoute('explorer_list_address_assets', {
+      chain: 'neox',
+      address: evmAddress,
+      limit: 25,
+    });
+    expect(assetsRoute.internalName).toBe('x_fura_address_tokens');
+    expect(assetsRoute.args.address).toBe(evmAddress);
+    expect(assetsRoute.args.limit).toBe(25);
+    // The internal handlers resolve a defaulted network server-side; the
+    // registry only rewrites an explicitly supplied one.
+    expect(assetsRoute.args.network).toBeUndefined();
+    const testnetAssets = resolveRoute('explorer_list_address_assets', {
+      chain: 'neox',
+      address: evmAddress,
+      network: 'testnet',
+    });
+    expect(testnetAssets.args.network).toBe('neox-testnet');
+  });
+
+  it('routes every query_neox_fura topic to the generic selector', () => {
+    const route = resolveRoute('query_neox_fura', {
+      topic: 'whales',
+      limit: 10,
+    });
+    expect(route.internalName).toBe('query_neox_fura');
+    expect(route.chain).toBe('neox');
+    expect(route.args).toEqual({ topic: 'whales', limit: 10 });
+    expect(route.requiresServices).toBe(false);
+    expect(route.requiresWallet).toBe(false);
+  });
+
+  it('rejects query_neox_fura on the N3 chain (the N3 surface lives in query_indexer)', () => {
+    expect(() => resolveRoute('query_neox_fura', { topic: 'whales', chain: 'n3' }))
+      .toThrow(ValidationError);
   });
 });

@@ -117,6 +117,32 @@ console.log({ blockCount, height: Math.max(0, blockCount - 1) });
 The aliases `NEO_MAINNET_RPC_URL`, `NEO_TESTNET_RPC_URL`, and `NEO_NETWORK_MODE` remain supported.
 
 MCP tool arguments are limited to 10,000 combined array elements and object members. The HTTP transport enforces this before constructing application services; stdio enforces the same limit in the MCP SDK.
+## Neo X deep analytics (NeoX Fura)
+
+Beyond the Blockscout-backed explorer tools, the unified surface exposes the
+NeoX Fura readapi (the Neo X counterpart of the Neo N3 fura deep-analytics
+backend):
+
+- `analyze_address`, `analyze_contract`, `analyze_account_graph`, and
+  `explorer_list_address_assets` also accept `chain: "neox"` and answer from
+  the NeoX Fura readapi (account analytics, contract intelligence, relationship
+  graphs, token holdings).
+- `query_neox_fura` is the generic selector for the full topic list —
+  account/contract/token analytics, behavior patterns, whale/bot leaderboards,
+  network daily/gas/growth stats, token distribution/velocity/flow graphs, and
+  DeFi pools/volume. Every topic is a vetted allowlist entry; unknown topics and
+  params are rejected before any network call, and responses carry the same
+  evidence envelope (indexed tip, freshness) the Neo N3 fura tools cite.
+
+| Variable | Purpose | Default |
+| --- | --- | --- |
+| `NEOX_MAINNET_FURA_API_BASE_URL` | NeoX Fura readapi base URL (mainnet) | `http://127.0.0.1:8545` |
+| `NEOX_TESTNET_FURA_API_BASE_URL` | NeoX Fura readapi base URL (testnet) | `http://127.0.0.1:8545` |
+
+The readapi is served by `neo-os-fura/supabase_indexer` (`cmd/neox-indexer`,
+API-only mode) and documents its full surface in
+`neo-os-fura/docs/NEOX-AI-AGENT-CAPABILITIES.md`. There is no public hosted
+instance yet, so point the base URLs at your deployment.
 
 Remote RPC endpoints must use HTTPS. Plain HTTP is accepted for loopback RPC endpoints; setting `NEO_ALLOW_INSECURE_RPC=true` explicitly permits remote plaintext HTTP and should be limited to controlled development environments.
 

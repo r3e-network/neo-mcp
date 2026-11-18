@@ -1154,16 +1154,20 @@ const SPECS: PublicToolSpec[] = [
       + 'relationships, co-signers, contract interactions, behavior signals, confidence, and '
       + 'explicit sample boundaries; observed behavior never proves a real-world owner.',
     inputSchema: {
-      address: z.string().describe('Canonical Base58 Neo N3 account address'),
+      ...chainField(CHAINS),
+      address: z.string().describe(
+        'Neo N3 canonical Base58 account address, or Neo X 0x address',
+      ),
       sample: z.number().int().min(20).max(200).optional().describe(
-        'Recent transfer rows sampled per direction (20-200, default 100)',
+        'Neo N3 only: recent transfer rows sampled per direction (20-200, default 100)',
       ),
       limit: z.number().int().min(4).max(24).optional().describe(
-        'Maximum ranked relationships to return (4-24, default 12)',
+        'Neo N3: maximum ranked relationships to return (4-24, default 12); '
+        + 'Neo X: bound on relationship rows (default server-side)',
       ),
       ...networkField,
     },
-    chains: ['n3'],
+    chains: CHAINS,
     routes: {
       n3: {
         internalName: 'query_indexer',
@@ -1172,6 +1176,13 @@ const SPECS: PublicToolSpec[] = [
           params: pick(args, ['address', 'sample', 'limit']),
           ...n3Args(pick(args, ['network'])),
         }),
+      },
+      neox: {
+        // Neo X account analytics come from the NeoX Fura readapi: activity
+        // stats, labels and detected behavior patterns in one evidence-backed
+        // envelope, mirroring the Neo N3 fura contract.
+        internalName: 'x_fura_address_analytics',
+        mapArgs: (args) => neoxNetwork(pick(args, ['address', 'network'])),
       },
     },
   },
@@ -1219,13 +1230,19 @@ const SPECS: PublicToolSpec[] = [
       + 'relationships do not prove common ownership or real-world identity; never treat a partial '
       + 'coverage window or a truncated per-counterparty asset list as exhaustive history.',
     inputSchema: {
-      address: z.string().describe('Canonical Base58 Neo N3 account address'),
+      ...chainField(CHAINS),
+      address: z.string().describe(
+        'Neo N3 canonical Base58 account address, or Neo X 0x address',
+      ),
       limit: z.number().int().min(4).max(50).optional().describe(
         'Maximum ranked counterparties to return (4-50, default 12)',
       ),
+      depth: z.number().int().min(1).max(5).optional().describe(
+        'Neo X only: relationship-graph hop depth (1-5, default server-side)',
+      ),
       ...networkField,
     },
-    chains: ['n3'],
+    chains: CHAINS,
     routes: {
       n3: {
         internalName: 'query_indexer',
@@ -1234,6 +1251,12 @@ const SPECS: PublicToolSpec[] = [
           params: pick(args, ['address', 'limit']),
           ...n3Args(pick(args, ['network'])),
         }),
+      },
+      neox: {
+        // Neo X relationship graph from the NeoX Fura readapi (nodes, edges,
+        // weights) — the graph half of the N3 analyze_account_graph contract.
+        internalName: 'x_fura_account_graph',
+        mapArgs: (args) => neoxNetwork(pick(args, ['address', 'depth', 'limit', 'network'])),
       },
     },
   },
@@ -1362,10 +1385,13 @@ const SPECS: PublicToolSpec[] = [
       + 'findings. A declared source URL, unsafe ABI method, or decompiled output is not proof '
       + 'of verified source or a vulnerability; preserve that distinction and cite evidence IDs.',
     inputSchema: {
-      contractHash: z.string().describe('Neo N3 contract script hash (0x + 40 hex characters)'),
+      ...chainField(CHAINS),
+      contractHash: z.string().describe(
+        'Neo N3 contract script hash (0x + 40 hex characters), or Neo X 0x contract address',
+      ),
       ...networkField,
     },
-    chains: ['n3'],
+    chains: CHAINS,
     routes: {
       n3: {
         internalName: 'query_indexer',
@@ -1374,6 +1400,14 @@ const SPECS: PublicToolSpec[] = [
           params: { hash: args.contractHash },
           ...n3Args(pick(args, ['network'])),
         }),
+      },
+      neox: {
+        // Neo X contract intelligence from the NeoX Fura readapi: call counts,
+        // distinct callers, gas burn, event volume, proxy/token classification.
+        internalName: 'x_fura_contract_analytics',
+        mapArgs: (args) => neoxNetwork(
+          rename(pick(args, ['contractHash', 'network']), 'contractHash', 'address'),
+        ),
       },
     },
   },
@@ -1495,17 +1529,27 @@ const SPECS: PublicToolSpec[] = [
   },
   {
     name: 'explorer_list_address_assets',
-    description: 'Neo N3 explorer analytics: list the assets (with balances) held by an address.',
+    description:
+      'Explorer analytics: list the assets (with balances) held by an address '
+      + '(NEP-17/NEP-11 on Neo N3, ERC-20/ERC-721 holdings on Neo X via the '
+      + 'NeoX Fura readapi).',
     inputSchema: {
-      address: z.string().describe('Neo N3 address or 0x script hash'),
+      ...chainField(CHAINS),
+      address: z.string().describe(
+        'Neo N3 address or 0x script hash, or Neo X 0x address',
+      ),
       ...paginationFields,
       ...networkField,
     },
-    chains: ['n3'],
+    chains: CHAINS,
     routes: {
       n3: {
         internalName: 'n3_assets_held_by_address',
         mapArgs: (args) => n3Args(pick(args, ['address', 'limit', 'skip', 'network'])),
+      },
+      neox: {
+        internalName: 'x_fura_address_tokens',
+        mapArgs: (args) => neoxNetwork(pick(args, ['address', 'limit', 'network'])),
       },
     },
   },
@@ -1639,6 +1683,57 @@ const SPECS: PublicToolSpec[] = [
       neox: {
         internalName: 'x_graphql',
         mapArgs: (args) => pick(args, ['query', 'variables']),
+      },
+    },
+  },
+  {
+    name: 'query_neox_fura',
+    description:
+      'Generic Neo X Fura deep-analytics query: pick one vetted read-only topic from the '
+      + 'NeoX Fura readapi (account analytics/relationships/patterns, contract '
+      + 'analytics/methods/interactions/callers, token analytics/distribution/velocity, '
+      + 'network daily/gas/growth stats, top-accounts/top-contracts/top-tokens/whales/bots '
+      + 'leaderboards, relationship graphs, token-flow and DeFi pools/volume) and pass its '
+      + 'typed params. Unknown topics and params are rejected before any network call. '
+      + 'This is the Neo X counterpart of the Neo N3 fura deep-analytics surface.',
+    inputSchema: {
+      topic: z.enum([
+        'status', 'search',
+        'address_analytics', 'address_relationships', 'address_patterns', 'address_tokens',
+        'account_graph',
+        'contract_analytics', 'contract_methods', 'contract_interactions', 'contract_callers',
+        'token_analytics', 'token_distribution', 'token_velocity',
+        'network_daily', 'network_gas', 'network_growth',
+        'top_accounts', 'top_contracts', 'top_tokens', 'whales', 'bots',
+        'token_flow', 'defi_pools', 'defi_volume',
+      ]).describe(
+        'The analytics topic to query. address_analytics/relationships/patterns/address_tokens, '
+        + 'account_graph and contract_*/token_* topics require "address" (0x); token_flow '
+        + 'requires "token" (0x); search requires "q".',
+      ),
+      address: z.string().optional().describe(
+        '0x account/contract/token address required by address_*, account_graph, '
+        + 'contract_* and token_analytics/distribution/velocity topics',
+      ),
+      token: z.string().optional().describe('0x token address (token_flow topic)'),
+      q: z.string().max(256).optional().describe('Free-text query (search topic)'),
+      limit: z.number().int().min(1).max(1000).optional().describe('Row bound for list-shaped topics'),
+      days: z.number().int().min(1).max(365).optional().describe('Window in days (token_velocity, network_daily)'),
+      hours: z.number().int().min(1).max(744).optional().describe('Window in hours (network_gas, token_flow)'),
+      depth: z.number().int().min(1).max(5).optional().describe('Graph hop depth (account_graph, 1-5)'),
+      sort: z.enum(['transactions', 'transfers', 'gas']).optional().describe(
+        'Ranking key (top_accounts)',
+      ),
+      ...networkField,
+    },
+    chains: ['neox'],
+    routes: {
+      neox: {
+        internalName: 'query_neox_fura',
+        mapArgs: (args) => neoxNetwork(pick(args, [
+          'topic', 'address', 'token', 'q',
+          'limit', 'days', 'hours', 'depth', 'sort', 'network',
+        ])),
       },
     },
   },

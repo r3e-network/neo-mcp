@@ -59,6 +59,12 @@ const DEFAULT_NEOX_TESTNET_RPC_URLS = [
   'https://testnet-1.rpc.banelabs.org',
   'https://neoxt4seed1.ngd.network',
 ];
+// Neo X Fura deep-analytics read API (supabase_indexer cmd/neox-indexer
+// readapi). Serves the /neox/{network}/... surface documented in
+// neo-os-fura/docs/NEOX-AI-AGENT-CAPABILITIES.md (account/contract/token
+// analytics, leaderboards, graphs, DeFi). No public hosted instance exists yet,
+// so the default points at a local deployment; override per environment.
+const DEFAULT_NEOX_FURA_API_BASE_URL = 'http://127.0.0.1:8545';
 const DEFAULT_HTTP_HOST = '127.0.0.1';
 const DEFAULT_HTTP_MAX_BODY_BYTES = 1024 * 1024;
 const DEFAULT_WALLETS_DIR = './wallets';
@@ -219,6 +225,12 @@ export const config = {
       const configured = readListEnv('NEOX_TESTNET_RPC_URLS');
       return configured.length > 0 ? configured : DEFAULT_NEOX_TESTNET_RPC_URLS;
     })(),
+    // Deep-analytics read API (NeoX Fura readapi). An empty value disables the
+    // x_fura_* tool family with a clear configuration error.
+    mainnetFuraApiBaseUrl:
+      readEnv('NEOX_MAINNET_FURA_API_BASE_URL') || DEFAULT_NEOX_FURA_API_BASE_URL,
+    testnetFuraApiBaseUrl:
+      readEnv('NEOX_TESTNET_FURA_API_BASE_URL') || DEFAULT_NEOX_FURA_API_BASE_URL,
     // Phase 2, gated OFF by default: the arbitrary GraphQL `x_graphql` tool only
     // EXECUTES when this flag is true. The tool is always advertised; when disabled
     // it returns a clear "disabled" error before any network call.
