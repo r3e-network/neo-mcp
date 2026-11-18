@@ -565,6 +565,7 @@ describe('explorer routing', () => {
 
   it('maps address-to-address analysis without exposing an arbitrary URL', () => {
     const route = resolveRoute('analyze_address_connection', {
+      chain: 'n3',
       source: 'NSource',
       target: 'NTarget',
       sample: 80,
@@ -940,5 +941,25 @@ describe('NeoX Fura deep-analytics routing', () => {
   it('rejects query_neox_fura on the N3 chain (the N3 surface lives in query_indexer)', () => {
     expect(() => resolveRoute('query_neox_fura', { topic: 'whales', chain: 'n3' }))
       .toThrow(ValidationError);
+  });
+
+  it('routes analyze_address_connection onto the NeoX Fura readapi on Neo X', () => {
+    const source = `0x${'a'.repeat(40)}`;
+    const target = `0x${'b'.repeat(40)}`;
+    const route = resolveRoute('analyze_address_connection', {
+      chain: 'neox',
+      source,
+      target,
+      limit: 12,
+      network: 'testnet',
+    });
+    expect(route.internalName).toBe('x_fura_address_connection');
+    expect(route.args).toEqual({
+      address: source,
+      target,
+      limit: 12,
+      network: 'neox-testnet',
+    });
+    expect(route.requiresServices).toBe(false);
   });
 });

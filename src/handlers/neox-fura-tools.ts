@@ -59,10 +59,12 @@ interface ToolSpec {
 export const NEOX_FURA_TOOLS: ReadonlySet<string> = new Set([
   'query_neox_fura',
   'x_fura_status',
+  'x_fura_stats',
   'x_fura_search',
   'x_fura_address_analytics',
   'x_fura_address_relationships',
   'x_fura_address_patterns',
+  'x_fura_address_connection',
   'x_fura_address_tokens',
   'x_fura_account_graph',
   'x_fura_contract_analytics',
@@ -87,6 +89,7 @@ export const NEOX_FURA_TOOLS: ReadonlySet<string> = new Set([
 
 const TOOL_SPECS: ReadonlyMap<string, ToolSpec> = new Map<string, ToolSpec>([
   ['x_fura_status', { pathTemplate: 'status' }],
+  ['x_fura_stats', { pathTemplate: 'stats' }],
   ['x_fura_search', {
     pathTemplate: 'search',
     freeText: true,
@@ -103,6 +106,14 @@ const TOOL_SPECS: ReadonlyMap<string, ToolSpec> = new Map<string, ToolSpec>([
   ['x_fura_address_patterns', {
     pathTemplate: 'addresses/{address}/patterns',
     pathParams: [{ kind: 'address', field: 'address' }],
+  }],
+  ['x_fura_address_connection', {
+    pathTemplate: 'addresses/{address}/connections/{target}',
+    pathParams: [
+      { kind: 'address', field: 'address' },
+      { kind: 'address', field: 'target' },
+    ],
+    query: { limit: { type: 'integer', min: 1, max: 100 } },
   }],
   ['x_fura_address_tokens', {
     pathTemplate: 'addresses/{address}/tokens',
@@ -199,10 +210,12 @@ const TOOL_SPECS: ReadonlyMap<string, ToolSpec> = new Map<string, ToolSpec>([
  */
 export const NEOX_FURA_TOPICS: Readonly<Record<string, string>> = Object.freeze({
   status: 'x_fura_status',
+  stats: 'x_fura_stats',
   search: 'x_fura_search',
   address_analytics: 'x_fura_address_analytics',
   address_relationships: 'x_fura_address_relationships',
   address_patterns: 'x_fura_address_patterns',
+  address_connection: 'x_fura_address_connection',
   address_tokens: 'x_fura_address_tokens',
   account_graph: 'x_fura_account_graph',
   contract_analytics: 'x_fura_contract_analytics',

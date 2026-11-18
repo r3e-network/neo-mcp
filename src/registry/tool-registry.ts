@@ -1195,17 +1195,23 @@ const SPECS: PublicToolSpec[] = [
       + 'provenance and explicit non-exhaustive sample boundaries. Connections never prove '
       + 'common ownership.',
     inputSchema: {
-      source: z.string().describe('Source canonical Base58 Neo N3 account address'),
-      target: z.string().describe('Target canonical Base58 Neo N3 account address'),
+      ...chainField(CHAINS),
+      source: z.string().describe(
+        'Source account: Neo N3 Base58 address, or Neo X 0x address',
+      ),
+      target: z.string().describe(
+        'Target account: Neo N3 Base58 address, or Neo X 0x address (must differ from source)',
+      ),
       sample: z.number().int().min(20).max(200).optional().describe(
-        'Recent transfer rows sampled per direction and address (20-200, default 100)',
+        'Neo N3 only: recent transfer rows sampled per direction and address (20-200, default 100)',
       ),
       limit: z.number().int().min(1).max(12).optional().describe(
-        'Maximum connection evidence paths to return (1-12, default 8)',
+        'Neo N3: maximum connection evidence paths (1-12, default 8); '
+        + 'Neo X: bound on shared-counterparty rows (default 20, max 100)',
       ),
       ...networkField,
     },
-    chains: ['n3'],
+    chains: CHAINS,
     routes: {
       n3: {
         internalName: 'query_indexer',
@@ -1217,6 +1223,17 @@ const SPECS: PublicToolSpec[] = [
             ...pick(args, ['sample', 'limit']),
           },
           ...n3Args(pick(args, ['network'])),
+        }),
+      },
+      neox: {
+        // Neo X pairwise connection from the NeoX Fura readapi: bounded
+        // direct-transfer stats plus one-hop shared-counterparty evidence,
+        // with the same explicit non-exhaustive sample boundary as Neo N3.
+        internalName: 'x_fura_address_connection',
+        mapArgs: (args) => neoxNetwork({
+          address: args.source,
+          target: args.target,
+          ...pick(args, ['limit', 'network']),
         }),
       },
     },
@@ -1698,8 +1715,9 @@ const SPECS: PublicToolSpec[] = [
       + 'This is the Neo X counterpart of the Neo N3 fura deep-analytics surface.',
     inputSchema: {
       topic: z.enum([
-        'status', 'search',
-        'address_analytics', 'address_relationships', 'address_patterns', 'address_tokens',
+        'status', 'stats', 'search',
+        'address_analytics', 'address_relationships', 'address_patterns',
+        'address_connection', 'address_tokens',
         'account_graph',
         'contract_analytics', 'contract_methods', 'contract_interactions', 'contract_callers',
         'token_analytics', 'token_distribution', 'token_velocity',
