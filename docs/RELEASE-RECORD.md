@@ -32,9 +32,9 @@ lands in the following commit.
   "package": "@r3e/neo-mcp",
   "version": "4.2.1",
   "archiveFileName": "neo-mcp-4.2.1.tar.gz",
-  "archiveSha256": "4845ebf558bdac572247178545f92be04b513a1707fe533a8546333439a3b36e",
-  "archiveBytes": 376922,
-  "sourceCommit": "90c84067961b0d0d898fcf491cc8dcf98a068dc8",
+  "archiveSha256": "25e1e176b6a402f511921c36fd22da00d2a25010acc256abdbfce1e226e27168",
+  "archiveBytes": 386118,
+  "sourceCommit": "83fc32ce856354f9fe49124515920161b1669006",
   "contents": [
     "dist/",
     "package.json",
