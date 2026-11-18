@@ -72,6 +72,7 @@ const DEFAULT_TOOL_NAMES = [
   'query_explorer_find',
   'query_explorer_graphql',
   'query_neofs',
+  'query_neox_fura',
   'query_nns',
   'request_account_watch',
   'resolve_recipient',
