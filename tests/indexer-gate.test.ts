@@ -33,7 +33,7 @@ const INDEXER_BACKED_CALLS: ReadonlyArray<[string, Record<string, unknown>]> = [
   ['n3_list_nep17_transfers_by_contract', { contractHash: VALID_N3_TOKEN_HASH, limit: 10, skip: 0 }],
   ['n3_list_assets', { limit: 10, skip: 0 }],
   ['n3_analyze_stablecoins', {}],
-  ['query_indexer', { method: 'analyze_address', params: { address: VALID_N3_ADDRESS } }],
+  ['query_indexer', { method: 'analyze_address', params: { chain: 'n3', address: VALID_N3_ADDRESS } }],
   ['query_indexer_find', { collection: 'transactions', filter: { sender: VALID_N3_ADDRESS } }],
 ];
 
@@ -67,7 +67,7 @@ describe('N3INDEX_ENABLED gates the indexer-backed tools', () => {
     const fetchMock = jest.fn();
     global.fetch = fetchMock as any;
 
-    const route = resolveRoute('analyze_address', { address: VALID_N3_ADDRESS, network: 'mainnet' });
+    const route = resolveRoute('analyze_address', { chain: 'n3', address: VALID_N3_ADDRESS, network: 'mainnet' });
     expect(route.internalName).toBe('query_indexer');
 
     const response = await callTool(
@@ -85,7 +85,7 @@ describe('N3INDEX_ENABLED gates the indexer-backed tools', () => {
     global.fetch = jest.fn() as any;
     const response = await callTool(
       'query_indexer',
-      { method: 'analyze_address', params: { address: VALID_N3_ADDRESS } },
+      { method: 'analyze_address', params: { chain: 'n3', address: VALID_N3_ADDRESS } },
       emptyNeoServices,
       emptyContractServices,
     );
@@ -97,7 +97,7 @@ describe('N3INDEX_ENABLED gates the indexer-backed tools', () => {
     global.fetch = jest.fn() as any;
     const response = await callTool(
       'query_indexer',
-      { method: 'analyze_address', params: { address: VALID_N3_ADDRESS } },
+      { method: 'analyze_address', params: { chain: 'n3', address: VALID_N3_ADDRESS } },
       emptyNeoServices,
       emptyContractServices,
     );
@@ -121,9 +121,9 @@ describe('N3INDEX_ENABLED gates the indexer-backed tools', () => {
   );
 
   test.each([
-    ['analyze_address', { address: VALID_N3_ADDRESS }, 'analyze_address'],
-    ['analyze_address_connection', { source: VALID_N3_ADDRESS, target: VALID_N3_TARGET }, 'analyze_address_connection'],
-    ['analyze_account_graph', { address: VALID_N3_ADDRESS }, 'analyze_account_graph'],
+    ['analyze_address', { chain: 'n3', address: VALID_N3_ADDRESS }, 'analyze_address'],
+    ['analyze_address_connection', { chain: 'n3', source: VALID_N3_ADDRESS, target: VALID_N3_TARGET }, 'analyze_address_connection'],
+    ['analyze_account_graph', { chain: 'n3', address: VALID_N3_ADDRESS }, 'analyze_account_graph'],
     ['explorer_get_address', { chain: 'n3', address: VALID_N3_ADDRESS }, 'get_address_summary'],
     ['analyze_stablecoins', { chain: 'n3' }, 'n3_analyze_stablecoins'],
   ] as const)('public tool %s is gated before any host is resolved', async (tool, args, subject) => {
@@ -162,7 +162,7 @@ describe('N3INDEX_ENABLED gates the indexer-backed tools', () => {
     const fetchMock = jest.fn().mockResolvedValue(jsonResponse({ data: { address: VALID_N3_ADDRESS } }));
     global.fetch = fetchMock as any;
 
-    const route = resolveRoute('analyze_address', { address: VALID_N3_ADDRESS, network: 'mainnet' });
+    const route = resolveRoute('analyze_address', { chain: 'n3', address: VALID_N3_ADDRESS, network: 'mainnet' });
     const response = await callTool(route.internalName, route.args, emptyNeoServices, emptyContractServices);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
